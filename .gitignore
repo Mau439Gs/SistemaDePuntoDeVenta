@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+punto_venta.db
+punto_venta.db-shm
+punto_venta.db-wal
+.venv/
