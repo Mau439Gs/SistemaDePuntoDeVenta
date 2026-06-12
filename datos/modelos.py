@@ -41,16 +41,3 @@ class DetalleVenta:
     costo: float     # cantidad * precio_unitario_compra
 
 
-@dataclass
-class ItemCarrito:
-    """Elemento temporal del carrito de compra durante una venta en curso."""
-    producto: Producto
-    cantidad: float
-
-    @property
-    def subtotal(self) -> float:
-        return self.cantidad * self.producto.precio_venta
-
-    @property
-    def costo(self) -> float:
-        return self.cantidad * self.producto.precio_compra

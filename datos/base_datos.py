@@ -221,62 +221,49 @@ class BaseDatos:
             print(f"Error al consultar: {e}")
             raise
 
-    "Funciones para SHA-256"
+    # ──────────────────────────────────────────────
+    #  Métodos de configuración (PIN, sal, etc.)
+    # ──────────────────────────────────────────────
 
     def obtener_configuracion(self, clave: str) -> str:
         """Busca una configuración en la tabla por su clave única."""
-        self.conectar()
-        cursor = self.conexion.cursor()
-        cursor.execute("SELECT valor FROM CONFIGURACION WHERE clave = ?;", (clave,))
-        resultado = cursor.fetchone()
-        self.desconectar()
-        
+        self._asegurar_conexion()
+        self.cursor.execute("SELECT valor FROM CONFIGURACION WHERE clave = ?;", (clave,))
+        resultado = self.cursor.fetchone()
         return resultado["valor"] if resultado else None
 
     def guardar_configuracion(self, clave: str, valor: str):
         """Inserta o reemplaza una configuración clave-valor."""
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
-        cursor.execute("""
+        self._asegurar_conexion()
+        self.cursor.execute("""
             INSERT OR REPLACE INTO CONFIGURACION (clave, valor) 
             VALUES (?, ?);
         """, (clave, valor))
         self.conexion.commit()
-        self.desconectar()
 
-    "Funciones para gestor_producto"
+    # ──────────────────────────────────────────────
+    #  CRUD de productos
+    # ──────────────────────────────────────────────
 
     def insertar_producto(self, nombre: str, tipo_venta: str, precio_compra: float, 
                           precio_venta: float, stock_minimo: float, stock_actual: float) -> int:
-        """
-        Inserta un nuevo producto en el catálogo.
-        Retorna el id_producto numérico auto-generado por la base de datos.
-        """
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
-        cursor.execute("""
+        """Inserta un nuevo producto en el catálogo.
+        Retorna el id_producto auto-generado por la base de datos."""
+        self._asegurar_conexion()
+        self.cursor.execute("""
             INSERT INTO PRODUCTOS (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual)
             VALUES (?, ?, ?, ?, ?, ?);
         """, (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual))
-        
         self.conexion.commit()
-        id_generado = cursor.lastrowid
-        self.desconectar()
-        return id_generado
+        return self.cursor.lastrowid
 
     def actualizar_producto(self, id_producto: int, nombre: str, tipo_venta: str, 
                             precio_compra: float, precio_venta: float, 
                             stock_minimo: float, stock_actual: float) -> bool:
-        """
-        Modifica los campos de un producto existente localizándolo por su ID único.
-        Retorna True si la actualización se realizó con éxito.
-        """
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
-        cursor.execute("""
+        """Modifica los campos de un producto existente por su ID.
+        Retorna True si la actualización se realizó con éxito."""
+        self._asegurar_conexion()
+        self.cursor.execute("""
             UPDATE PRODUCTOS 
             SET nombre = ?, 
                 tipo_venta = ?, 
@@ -286,66 +273,38 @@ class BaseDatos:
                 stock_actual = ?
             WHERE id_producto = ?;
         """, (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual, id_producto))
-        
         self.conexion.commit()
-                                
-        filas_afectadas = cursor.rowcount 
-        self.desconectar()
-        return filas_afectadas > 0
+        return self.cursor.rowcount > 0
 
     def eliminar_producto(self, id_producto: int) -> bool:
-        """
-        Elimina de forma física un producto del catálogo usando su ID único.
-        Retorna True si el registro fue borrado exitosamente.
-        """
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
+        """Elimina un producto del catálogo usando su ID.
+        Retorna True si el registro fue borrado exitosamente."""
+        self._asegurar_conexion()
         try:
-            cursor.execute("DELETE FROM PRODUCTOS WHERE id_producto = ?;", (id_producto,))
+            self.cursor.execute("DELETE FROM PRODUCTOS WHERE id_producto = ?;", (id_producto,))
             self.conexion.commit()
-            filas_afectadas = cursor.rowcount
-            exito = filas_afectadas > 0
+            return self.cursor.rowcount > 0
         except sqlite3.IntegrityError:
-            
-            exito = False
-            
-        self.desconectar()
-        return exito
+            return False
 
     def obtener_catalogo(self) -> list:
-        """
-        Recupera la totalidad de los productos almacenados en el inventario.
-        Utilizado para rellenar la tabla principal del Módulo de Administrador.
-        Retorna una lista de diccionarios con las columnas de cada producto.
-        """
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
-        cursor.execute("""
+        """Recupera todos los productos del inventario.
+        Retorna una lista de diccionarios con las columnas de cada producto."""
+        self._asegurar_conexion()
+        self.cursor.execute("""
             SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual 
             FROM PRODUCTOS;
         """)
-        
-        resultados = [dict(fila) for fila in cursor.fetchall()]
-        self.desconectar()
-        return resultados
+        return [dict(fila) for fila in self.cursor.fetchall()]
 
     def buscar_productos(self, termino: str) -> list:
-        """
-        Realiza una consulta filtrada utilizando comodines de SQL (LIKE).
-        Permite la búsqueda predictiva o en tiempo real desde la interfaz del cajero.
-        Retorna los productos que coincidan parcialmente con el término de búsqueda.
-        """
-        self.conectar()
-        cursor = self.conexion.cursor()
-        
-        cursor.execute("""
+        """Búsqueda filtrada con LIKE para la búsqueda en tiempo real del cajero.
+        Retorna los productos que coincidan parcialmente con el término."""
+        self._asegurar_conexion()
+        self.cursor.execute("""
             SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual 
             FROM PRODUCTOS 
             WHERE nombre LIKE ?;
         """, (f"%{termino}%",))
-        
-        resultados = [dict(fila) for fila in cursor.fetchall()]
-        self.desconectar()
-        return resultados
+        return [dict(fila) for fila in self.cursor.fetchall()]
+
