@@ -244,3 +244,71 @@ class BaseDatos:
         """, (clave, valor))
         self.conexion.commit()
         self.desconectar()
+
+    "Funciones para gestor_producto"
+
+    def insertar_producto(self, nombre: str, tipo_venta: str, precio_compra: float, 
+                          precio_venta: float, stock_minimo: float, stock_actual: float) -> int:
+        """
+        Inserta un nuevo producto en el catálogo.
+        Retorna el id_producto numérico auto-generado por la base de datos.
+        """
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        cursor.execute("""
+            INSERT INTO PRODUCTOS (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual)
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual))
+        
+        self.conexion.commit()
+        id_generado = cursor.lastrowid
+        self.desconectar()
+        return id_generado
+
+    def actualizar_producto(self, id_producto: int, nombre: str, tipo_venta: str, 
+                            precio_compra: float, precio_venta: float, 
+                            stock_minimo: float, stock_actual: float) -> bool:
+        """
+        Modifica los campos de un producto existente localizándolo por su ID único.
+        Retorna True si la actualización se realizó con éxito.
+        """
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        cursor.execute("""
+            UPDATE PRODUCTOS 
+            SET nombre = ?, 
+                tipo_venta = ?, 
+                precio_compra = ?, 
+                precio_venta = ?, 
+                stock_minimo = ?, 
+                stock_actual = ?
+            WHERE id_producto = ?;
+        """, (nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual, id_producto))
+        
+        self.conexion.commit()
+                                
+        filas_afectadas = cursor.rowcount 
+        self.desconectar()
+        return filas_afectadas > 0
+
+    def eliminar_producto(self, id_producto: int) -> bool:
+        """
+        Elimina de forma física un producto del catálogo usando su ID único.
+        Retorna True si el registro fue borrado exitosamente.
+        """
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        try:
+            cursor.execute("DELETE FROM PRODUCTOS WHERE id_producto = ?;", (id_producto,))
+            self.conexion.commit()
+            filas_afectadas = cursor.rowcount
+            exito = filas_afectadas > 0
+        except sqlite3.IntegrityError:
+            
+            exito = False
+            
+        self.desconectar()
+        return exito
