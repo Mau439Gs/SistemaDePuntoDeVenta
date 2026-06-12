@@ -24,5 +24,4 @@ class GestorProductos:
         return self.db.obtener_catalogo()
 
     def buscar_producto(self, termino: str) -> list:
-        termino_limpio = self.normalizar_texto(termino)
-        return self.db.buscar_productos(termino_limpio)
+        return self.db.buscar_productos(termino)
