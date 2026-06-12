@@ -220,3 +220,27 @@ class BaseDatos:
         except sqlite3.Error as e:
             print(f"Error al consultar: {e}")
             raise
+
+    "Funciones para SHA-256"
+
+    def obtener_configuracion(self, clave: str) -> str:
+        """Busca una configuración en la tabla por su clave única."""
+        self.conectar()
+        cursor = self.conexion.cursor()
+        cursor.execute("SELECT valor FROM CONFIGURACION WHERE clave = ?;", (clave,))
+        resultado = cursor.fetchone()
+        self.desconectar()
+        
+        return resultado["valor"] if resultado else None
+
+    def guardar_configuracion(self, clave: str, valor: str):
+        """Inserta o reemplaza una configuración clave-valor."""
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        cursor.execute("""
+            INSERT OR REPLACE INTO CONFIGURACION (clave, valor) 
+            VALUES (?, ?);
+        """, (clave, valor))
+        self.conexion.commit()
+        self.desconectar()
