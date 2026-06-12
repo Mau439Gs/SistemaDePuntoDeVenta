@@ -312,3 +312,40 @@ class BaseDatos:
             
         self.desconectar()
         return exito
+
+    def obtener_catalogo(self) -> list:
+        """
+        Recupera la totalidad de los productos almacenados en el inventario.
+        Utilizado para rellenar la tabla principal del Módulo de Administrador.
+        Retorna una lista de diccionarios con las columnas de cada producto.
+        """
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        cursor.execute("""
+            SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual 
+            FROM PRODUCTOS;
+        """)
+        
+        resultados = [dict(fila) for fila in cursor.fetchall()]
+        self.desconectar()
+        return resultados
+
+    def buscar_productos(self, termino: str) -> list:
+        """
+        Realiza una consulta filtrada utilizando comodines de SQL (LIKE).
+        Permite la búsqueda predictiva o en tiempo real desde la interfaz del cajero.
+        Retorna los productos que coincidan parcialmente con el término de búsqueda.
+        """
+        self.conectar()
+        cursor = self.conexion.cursor()
+        
+        cursor.execute("""
+            SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual 
+            FROM PRODUCTOS 
+            WHERE nombre LIKE ?;
+        """, (f"%{termino}%",))
+        
+        resultados = [dict(fila) for fila in cursor.fetchall()]
+        self.desconectar()
+        return resultados
