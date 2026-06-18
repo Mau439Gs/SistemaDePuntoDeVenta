@@ -186,41 +186,53 @@ class PantallaCajero(QWidget):
         layout.setContentsMargins(20, 0, 20, 0)
         layout.setSpacing(12)
 
-        # ── Barra de búsqueda ──
+        # ── Espaciador izquierdo para centrar la barra ──
+        layout.addStretch(1)
+
+        # ── Barra de búsqueda (centrada) ──
         self.barra_busqueda = QLineEdit()
-        self.barra_busqueda.setFixedHeight(40)
-        self.barra_busqueda.setMinimumWidth(420)
-        self.barra_busqueda.setMaximumWidth(600)
+        self.barra_busqueda.setFixedHeight(42)
+        self.barra_busqueda.setMinimumWidth(480)
+        self.barra_busqueda.setMaximumWidth(650)
         self.barra_busqueda.setFont(QFont("Segoe UI", 13))
         self.barra_busqueda.textChanged.connect(self.senal_busqueda.emit)
 
         # Ícono de lupa a la derecha
         try:
             icono_busqueda = create_icon_from_svg(SVG_SEARCH, 20)
-            accion_busqueda = self.barra_busqueda.addAction(
+            self.barra_busqueda.addAction(
                 icono_busqueda, QLineEdit.ActionPosition.TrailingPosition
             )
         except Exception:
-            pass  # Si falla SVG, la barra sigue funcional
+            pass
 
         self.barra_busqueda.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {Colors.SEARCH_BG};
                 border: 1.5px solid {Colors.SEARCH_BORDER};
-                border-radius: 12px;
-                padding: 0 40px 0 16px;
+                border-radius: 14px;
+                padding: 0 42px 0 18px;
                 color: {Colors.SEARCH_TEXT};
                 font-size: 13px;
                 selection-background-color: rgba(96, 165, 250, 0.35);
             }}
             QLineEdit:focus {{
                 border: 1.5px solid {Colors.SEARCH_FOCUS_BORDER};
-                background-color: rgba(255, 255, 255, 0.16);
+                background-color: rgba(255, 255, 255, 0.18);
             }}
         """)
 
+        # Glow sutil alrededor de la barra
+        sombra_busqueda = QGraphicsDropShadowEffect()
+        sombra_busqueda.setBlurRadius(24)
+        sombra_busqueda.setOffset(0, 2)
+        sombra_busqueda.setColor(QColor(96, 165, 250, 50))
+        self.barra_busqueda.setGraphicsEffect(sombra_busqueda)
+
         layout.addWidget(self.barra_busqueda)
-        layout.addStretch()
+
+        # ── Espaciador derecho (más corto para dejar espacio a botones) ──
+        layout.addStretch(1)
 
         # ── Botones de navegación ──
         self.btn_cajero = self._crear_boton_header("  Cajero", SVG_CART, activo=True)
