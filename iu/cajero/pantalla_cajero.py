@@ -76,49 +76,103 @@ class GradientHeader(QWidget):
 
 
 # ══════════════════════════════════════════════════
-#  Generador de íconos SVG inline
+#  Generador de íconos pintados con QPainter
 # ══════════════════════════════════════════════════
 
-def create_icon_from_svg(svg_content: str, size: int = 20) -> QIcon:
-    """Crea un QIcon a partir de contenido SVG en string."""
-    from PyQt6.QtSvg import QSvgRenderer
-    from PyQt6.QtCore import QByteArray
+def crear_icono_lupa(size: int = 22, color: QColor = QColor(255, 255, 255, 160)) -> QIcon:
+    """Dibuja una lupa con QPainter — siempre visible."""
     pixmap = QPixmap(size, size)
     pixmap.fill(QColor("transparent"))
-    renderer = QSvgRenderer(QByteArray(svg_content.encode()))
-    painter = QPainter(pixmap)
-    renderer.render(painter)
-    painter.end()
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(color, 2.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+    p.setPen(pen)
+    # Círculo de la lupa
+    cx, cy, r = size * 0.40, size * 0.40, size * 0.28
+    p.drawEllipse(int(cx - r), int(cy - r), int(r * 2), int(r * 2))
+    # Mango de la lupa
+    from math import cos, sin, radians
+    angle = radians(45)
+    x1 = cx + r * cos(angle)
+    y1 = cy + r * sin(angle)
+    x2 = size * 0.85
+    y2 = size * 0.85
+    p.drawLine(int(x1), int(y1), int(x2), int(y2))
+    p.end()
     return QIcon(pixmap)
 
 
-# SVGs para íconos
-SVG_SEARCH = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-    stroke="rgba(255,255,255,0.55)" stroke-width="2.5" stroke-linecap="round">
-    <circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/>
-</svg>'''
+def crear_icono_x(size: int = 20, color: QColor = QColor(255, 255, 255)) -> QIcon:
+    """Dibuja una X con QPainter."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(QColor("transparent"))
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QPen(color, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+    m = int(size * 0.22)  # margen
+    p.drawLine(m, m, size - m, size - m)
+    p.drawLine(size - m, m, m, size - m)
+    p.end()
+    return QIcon(pixmap)
 
-SVG_CART = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-    stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-    <line x1="3" y1="6" x2="21" y2="6"/>
-    <path d="M16 10a4 4 0 01-8 0"/>
-</svg>'''
 
-SVG_SHIELD = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-    stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-</svg>'''
+def crear_icono_flecha(size: int = 20, color: QColor = QColor(30, 41, 59)) -> QIcon:
+    """Dibuja una flecha → con QPainter."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(QColor("transparent"))
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QPen(color, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    mid = size // 2
+    m = int(size * 0.18)
+    # Línea horizontal
+    p.drawLine(m, mid, size - m, mid)
+    # Cabeza de flecha
+    head = int(size * 0.28)
+    p.drawLine(size - m, mid, size - m - head, mid - head)
+    p.drawLine(size - m, mid, size - m - head, mid + head)
+    p.end()
+    return QIcon(pixmap)
 
-SVG_X = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-    stroke="white" stroke-width="2.5" stroke-linecap="round">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-</svg>'''
 
-SVG_ARROW_RIGHT = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-    stroke="#1E293B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-</svg>'''
+# ══════════════════════════════════════════════════
+#  Fondo premium para el cuerpo central
+# ══════════════════════════════════════════════════
+
+class FondoPremium(QWidget):
+    """Fondo blanco con gradiente radial sutil y patrón de puntos decorativos."""
+
+    def paintEvent(self, event: QPaintEvent):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+
+        # Fondo base blanco
+        p.fillRect(self.rect(), QColor(Colors.BG_WHITE))
+
+        # Gradiente radial sutil desde el centro (muy tenue)
+        from PyQt6.QtGui import QRadialGradient
+        gradient = QRadialGradient(w / 2, h / 2, max(w, h) * 0.7)
+        gradient.setColorAt(0.0, QColor(237, 242, 255, 35))   # Azul hielo ultra tenue
+        gradient.setColorAt(0.5, QColor(245, 247, 250, 20))
+        gradient.setColorAt(1.0, QColor(255, 255, 255, 0))
+        p.fillRect(self.rect(), gradient)
+
+        # Patrón de puntos decorativos sutiles
+        p.setPen(Qt.PenStyle.NoPen)
+        dot_color = QColor(200, 210, 225, 22)  # Gris azulado ultra tenue
+        p.setBrush(dot_color)
+        spacing = 32
+        dot_r = 1.5
+        for x in range(spacing, w, spacing):
+            for y in range(spacing, h, spacing):
+                p.drawEllipse(int(x - dot_r), int(y - dot_r), int(dot_r * 2), int(dot_r * 2))
+
+        # Línea decorativa superior fina
+        p.setPen(QPen(QColor(30, 58, 138, 18), 1))
+        p.drawLine(0, 0, w, 0)
+
+        p.end()
 
 
 # ══════════════════════════════════════════════════
@@ -155,11 +209,8 @@ class PantallaCajero(QWidget):
         # ── 1. HEADER ──
         layout_principal.addWidget(self._crear_header())
 
-        # ── 2. CUERPO CENTRAL (vacío, se llenará con el carrito) ──
-        self.contenedor_central = QWidget()
-        self.contenedor_central.setStyleSheet(
-            f"background-color: {Colors.BG_WHITE};"
-        )
+        # ── 2. CUERPO CENTRAL (fondo premium) ──
+        self.contenedor_central = FondoPremium()
         self.contenedor_central.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding
@@ -197,14 +248,11 @@ class PantallaCajero(QWidget):
         self.barra_busqueda.setFont(QFont("Segoe UI", 13))
         self.barra_busqueda.textChanged.connect(self.senal_busqueda.emit)
 
-        # Ícono de lupa a la derecha
-        try:
-            icono_busqueda = create_icon_from_svg(SVG_SEARCH, 20)
-            self.barra_busqueda.addAction(
-                icono_busqueda, QLineEdit.ActionPosition.TrailingPosition
-            )
-        except Exception:
-            pass
+        # Ícono de lupa a la derecha (pintado directo, siempre visible)
+        icono_lupa = crear_icono_lupa(22, QColor(255, 255, 255, 160))
+        self.barra_busqueda.addAction(
+            icono_lupa, QLineEdit.ActionPosition.TrailingPosition
+        )
 
         self.barra_busqueda.setStyleSheet(f"""
             QLineEdit {{
@@ -235,8 +283,8 @@ class PantallaCajero(QWidget):
         layout.addStretch(1)
 
         # ── Botones de navegación ──
-        self.btn_cajero = self._crear_boton_header("  Cajero", SVG_CART, activo=True)
-        self.btn_admin = self._crear_boton_header("  Admin.", SVG_SHIELD)
+        self.btn_cajero = self._crear_boton_header("  Cajero", activo=True)
+        self.btn_admin = self._crear_boton_header("  Admin.")
         self.btn_admin.clicked.connect(self.senal_ir_admin.emit)
 
         layout.addWidget(self.btn_cajero)
@@ -244,18 +292,12 @@ class PantallaCajero(QWidget):
 
         return header
 
-    def _crear_boton_header(self, texto: str, svg: str, activo: bool = False) -> QPushButton:
+    def _crear_boton_header(self, texto: str, activo: bool = False) -> QPushButton:
         btn = QPushButton(texto)
         btn.setFixedHeight(38)
         btn.setMinimumWidth(110)
         btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        try:
-            btn.setIcon(create_icon_from_svg(svg, 18))
-            btn.setIconSize(QSize(18, 18))
-        except Exception:
-            pass
 
         if activo:
             btn.setStyleSheet(f"""
@@ -306,11 +348,8 @@ class PantallaCajero(QWidget):
         self.btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_cancelar.clicked.connect(self.senal_cancelar_venta.emit)
 
-        try:
-            self.btn_cancelar.setIcon(create_icon_from_svg(SVG_X, 18))
-            self.btn_cancelar.setIconSize(QSize(18, 18))
-        except Exception:
-            pass
+        self.btn_cancelar.setIcon(crear_icono_x(18, QColor(255, 255, 255)))
+        self.btn_cancelar.setIconSize(QSize(18, 18))
 
         self.btn_cancelar.setStyleSheet(f"""
             QPushButton {{
@@ -343,12 +382,9 @@ class PantallaCajero(QWidget):
         self.btn_avanzar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_avanzar.clicked.connect(self.senal_avanzar_cobro.emit)
 
-        try:
-            self.btn_avanzar.setIcon(create_icon_from_svg(SVG_ARROW_RIGHT, 18))
-            self.btn_avanzar.setIconSize(QSize(18, 18))
-            self.btn_avanzar.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        except Exception:
-            pass
+        self.btn_avanzar.setIcon(crear_icono_flecha(18, QColor(30, 41, 59)))
+        self.btn_avanzar.setIconSize(QSize(18, 18))
+        self.btn_avanzar.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
 
         self.btn_avanzar.setStyleSheet(f"""
             QPushButton {{
