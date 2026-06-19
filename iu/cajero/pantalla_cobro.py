@@ -1,254 +1,410 @@
-# iu/cajero/pantalla_cobro.py
 """
-Módulo de Cobro — Interfaz para ingresar el pago en efectivo y calcular el cambio.
+pantalla_cobro.py — Pantalla de Cobro (Módulo Cajero)
+Requerimientos: C-006, C-007, C-017
+Miércoles 17 de Junio — Fase 3, Alta Prioridad
+Encargado: Mauricio S. Castillo
 """
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,
-    QPushButton, QLabel, QFrame, QWidget
+    QWidget, QLabel, QLineEdit, QPushButton,
+    QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
+    QMessageBox, QSizePolicy, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, QPoint, pyqtSignal
-from PyQt6.QtGui import QFont, QColor, QDoubleValidator
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QDoubleValidator, QFont, QColor, QLinearGradient, 
+    QPainter, QPaintEvent, QIcon, QPen, QPixmap
+)
 
 
-class PantallaCobro(QDialog):
-    """Diálogo modal de Cobro.
-    
-    Campos en disposición vertical: Total a Pagar, Monto Recibido, Cambio.
-    """
-    
-    def __init__(self, total_pagar: float, parent=None):
+# ══════════════════════════════════════════════════
+#  Colores y Estilos del Header
+# ══════════════════════════════════════════════════
+class Colors:
+    HEADER_START = "#1E3A8A"
+    HEADER_END = "#0F172A"
+    SEARCH_BG = "rgba(255, 255, 255, 0.12)"
+    SEARCH_BORDER = "rgba(255, 255, 255, 0.20)"
+    SEARCH_TEXT = "#FFFFFF"
+    SEARCH_FOCUS_BORDER = "rgba(255, 255, 255, 0.45)"
+    HEADER_BTN = "rgba(255, 255, 255, 0.08)"
+    HEADER_BTN_HOVER = "rgba(255, 255, 255, 0.18)"
+    HEADER_BTN_ACTIVE = "rgba(96, 165, 250, 0.25)"
+    HEADER_BTN_ACTIVE_BORDER = "#60A5FA"
+
+
+class GradientHeader(QWidget):
+    """Encabezado con fondo de gradiente lineal azul oscuro."""
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.total_pagar = total_pagar
-        self.monto_recibido = 0.0
-        self.cambio = 0.0
-        
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFixedSize(500, 440)
-        self._setup_ui()
-        
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
+        self.setFixedHeight(72)
 
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self.drag_position)
-            event.accept()
+    def paintEvent(self, event: QPaintEvent):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        gradient = QLinearGradient(0, 0, self.width(), 0)
+        gradient.setColorAt(0.0, QColor(Colors.HEADER_START))
+        gradient.setColorAt(1.0, QColor(Colors.HEADER_END))
+        painter.fillRect(self.rect(), gradient)
+        painter.end()
 
-    def _setup_ui(self):
-        layout_principal = QVBoxLayout(self)
-        layout_principal.setContentsMargins(0, 0, 0, 0)
+
+def crear_icono_lupa(size: int = 22, color: QColor = QColor(255, 255, 255, 160)) -> QIcon:
+    """Dibuja una lupa con QPainter."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(QColor("transparent"))
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(color, 2.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+    p.setPen(pen)
+    cx, cy, r = size * 0.40, size * 0.40, size * 0.28
+    p.drawEllipse(int(cx - r), int(cy - r), int(r * 2), int(r * 2))
+    from math import cos, sin, radians
+    angle = radians(45)
+    x1, y1 = cx + r * cos(angle), cy + r * sin(angle)
+    p.drawLine(int(x1), int(y1), int(size * 0.85), int(size * 0.85))
+    p.end()
+    return QIcon(pixmap)
+
+
+# ══════════════════════════════════════════════════
+#  Clase Principal
+# ══════════════════════════════════════════════════
+class PantallaCobro(QWidget):
+    """
+    Pantalla de cobro del módulo cajero con barra superior.
+    """
+    cobro_confirmado = pyqtSignal(float, float)
+    regresar_carrito = pyqtSignal()
+    venta_cancelada = pyqtSignal()
+    
+    # Señales para la barra superior
+    senal_ir_admin = pyqtSignal()
+    senal_busqueda = pyqtSignal(str)
+
+    def __init__(self, gestor_carrito, gestor_ventas, parent=None):
+        super().__init__(parent)
+        self._gestor_carrito = gestor_carrito
+        self._gestor_ventas = gestor_ventas
+        self._total = 0.0
+        self.resize(1200, 800)
+        self._configurar_ui()
+
+    # ------------------------------------------------------------------ #
+    #  Construcción de la UI                                             #
+    # ------------------------------------------------------------------ #
+
+    def _configurar_ui(self):
+        # Layout raíz (sin márgenes para que el header toque las esquinas)
+        layout_raiz = QVBoxLayout(self)
+        layout_raiz.setContentsMargins(0, 0, 0, 0)
+        layout_raiz.setSpacing(0)
+
+        # 1. Agregamos el Header en la parte superior
+        layout_raiz.addWidget(self._crear_header())
+
+        # 2. Contenedor para el cuerpo de cobro (con los márgenes que teníamos antes)
+        cuerpo_widget = QWidget()
+        layout_cuerpo = QVBoxLayout(cuerpo_widget)
+        layout_cuerpo.setContentsMargins(40, 40, 40, 40)
+
+        # --- LA "TARJETA" CENTRAL ESTRICTA ---
+        self.contenedor_central = QFrame()
+        self.contenedor_central.setMaximumWidth(550) 
+        self.contenedor_central.setMinimumWidth(450) 
         
-        self.contenedor = QFrame(self)
-        self.contenedor.setObjectName("ContenedorCobro")
-        self.contenedor.setStyleSheet("""
-            QFrame#ContenedorCobro {
-                background-color: white;
-                border: 1.5px solid #CBD5E1;
-                border-radius: 16px;
-            }
+        layout_central = QVBoxLayout(self.contenedor_central)
+        layout_central.setContentsMargins(0, 0, 0, 0)
+        layout_central.setSpacing(35) 
+        
+        layout_central.addLayout(self._crear_campos_cobro())
+        layout_central.addLayout(self._crear_botones_centrales())
+
+        layout_centrado_horizontal = QHBoxLayout()
+        layout_centrado_horizontal.addStretch()
+        layout_centrado_horizontal.addWidget(self.contenedor_central)
+        layout_centrado_horizontal.addStretch()
+
+        # Ensamblamos el cuerpo
+        layout_cuerpo.addStretch()
+        layout_cuerpo.addLayout(layout_centrado_horizontal)
+        layout_cuerpo.addStretch()
+
+        # Botón Cancelar (Anclado abajo a la izquierda dentro del cuerpo)
+        layout_inferior = QHBoxLayout()
+        layout_inferior.setContentsMargins(0, 0, 0, 0)
+        layout_inferior.addWidget(self._crear_btn_cancelar())
+        layout_inferior.addStretch()
+        layout_cuerpo.addLayout(layout_inferior)
+
+        # Agregamos el cuerpo al layout raíz, debajo del header
+        layout_raiz.addWidget(cuerpo_widget)
+
+    def _crear_header(self) -> QWidget:
+        """Crea la barra de navegación idéntica a PantallaCajero."""
+        header = GradientHeader()
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(20, 0, 20, 0)
+        layout.setSpacing(12)
+
+        layout.addStretch(1)
+
+        self.barra_busqueda = QLineEdit()
+        self.barra_busqueda.setFixedHeight(42)
+        self.barra_busqueda.setMinimumWidth(480)
+        self.barra_busqueda.setMaximumWidth(650)
+        self.barra_busqueda.setFont(QFont("Segoe UI", 13))
+        self.barra_busqueda.textChanged.connect(self.senal_busqueda.emit)
+
+        icono_lupa = crear_icono_lupa(22, QColor(255, 255, 255, 160))
+        self.barra_busqueda.addAction(icono_lupa, QLineEdit.ActionPosition.TrailingPosition)
+
+        self.barra_busqueda.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {Colors.SEARCH_BG};
+                border: 1.5px solid {Colors.SEARCH_BORDER};
+                border-radius: 14px;
+                padding: 0 42px 0 18px;
+                color: {Colors.SEARCH_TEXT};
+                font-size: 13px;
+                selection-background-color: rgba(96, 165, 250, 0.35);
+            }}
+            QLineEdit:focus {{
+                border: 1.5px solid {Colors.SEARCH_FOCUS_BORDER};
+                background-color: rgba(255, 255, 255, 0.18);
+            }}
         """)
-        layout_principal.addWidget(self.contenedor)
-        
-        layout_body = QVBoxLayout(self.contenedor)
-        layout_body.setContentsMargins(0, 0, 0, 0)
-        layout_body.setSpacing(0)
-        
-        # Cabecera Azul
-        cabecera = QFrame()
-        cabecera.setObjectName("Cabecera")
-        cabecera.setFixedHeight(60)
-        cabecera.setStyleSheet("""
-            QFrame#Cabecera {
-                background-color: #2563EB;
-                border-top-left-radius: 14px;
-                border-top-right-radius: 14px;
-            }
-        """)
-        layout_cabecera = QHBoxLayout(cabecera)
-        layout_cabecera.setContentsMargins(0, 0, 0, 0)
-        
-        lbl_titulo = QLabel("Cobro de Venta", cabecera)
-        lbl_titulo.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        lbl_titulo.setStyleSheet("color: white; border: none;")
-        lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout_cabecera.addWidget(lbl_titulo)
-        layout_body.addWidget(cabecera)
-        
-        # Cuerpo del diálogo (Campos verticales)
-        cuerpo = QWidget()
-        layout_cuerpo_interno = QVBoxLayout(cuerpo)
-        layout_cuerpo_interno.setContentsMargins(32, 24, 32, 24)
-        layout_cuerpo_interno.setSpacing(14)
-        
-        # 1. Total a pagar (Solo lectura)
-        lbl_total_titulo = QLabel("TOTAL A PAGAR:", cuerpo)
-        lbl_total_titulo.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        lbl_total_titulo.setStyleSheet("color: #64748B; border: none;")
-        
-        self.lbl_total_valor = QLabel(f"$ {self.total_pagar:.2f}", cuerpo)
-        self.lbl_total_valor.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
-        self.lbl_total_valor.setStyleSheet("color: #0F172A; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 6px;")
-        self.lbl_total_valor.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        layout_cuerpo_interno.addWidget(lbl_total_titulo)
-        layout_cuerpo_interno.addWidget(self.lbl_total_valor)
-        
-        # 2. Monto recibido (Editable)
-        lbl_recibido_titulo = QLabel("MONTO RECIBIDO:", cuerpo)
-        lbl_recibido_titulo.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        lbl_recibido_titulo.setStyleSheet("color: #64748B; border: none;")
-        
-        self.txt_recibido = QLineEdit(cuerpo)
-        self.txt_recibido.setPlaceholderText("Efectivo")
-        self.txt_recibido.setFont(QFont("Segoe UI", 16))
-        self.txt_recibido.setFixedSize(436, 44)
-        self.txt_recibido.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.txt_recibido.setStyleSheet("""
-            QLineEdit {
-                background-color: white;
-                border: 1.5px solid #CBD5E1;
-                border-radius: 8px;
-                color: #0F172A;
-            }
-            QLineEdit:focus {
-                border: 2px solid #2563EB;
-            }
-        """)
-        validador = QDoubleValidator(0.0, 99999.99, 2, self)
-        validador.setNotation(QDoubleValidator.Notation.StandardNotation)
-        self.txt_recibido.setValidator(validador)
-        self.txt_recibido.textChanged.connect(self._on_recibido_changed)
-        
-        layout_cuerpo_interno.addWidget(lbl_recibido_titulo)
-        layout_cuerpo_interno.addWidget(self.txt_recibido)
-        
-        # 3. Cambio (Solo lectura)
-        lbl_cambio_titulo = QLabel("CAMBIO A DEVOLVER:", cuerpo)
-        lbl_cambio_titulo.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        lbl_cambio_titulo.setStyleSheet("color: #64748B; border: none;")
-        
-        self.lbl_cambio_valor = QLabel("$ 0.00", cuerpo)
-        self.lbl_cambio_valor.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
-        self.lbl_cambio_valor.setStyleSheet("color: #16A34A; background-color: #F0FDF4; border: 1px solid #DCFCE7; border-radius: 8px; padding: 6px;")
-        self.lbl_cambio_valor.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        layout_cuerpo_interno.addWidget(lbl_cambio_titulo)
-        layout_cuerpo_interno.addWidget(self.lbl_cambio_valor)
-        
-        # Botones
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(20)
-        btn_layout.setContentsMargins(0, 10, 0, 0)
-        
-        self.btn_cancelar = QPushButton("Regresar", cuerpo)
-        self.btn_cancelar.setObjectName("btn_cancelar")
-        self.btn_cancelar.setFixedSize(140, 42)
-        self.btn_cancelar.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_cancelar.clicked.connect(self.reject)
-        self.btn_cancelar.setStyleSheet("""
-            QPushButton#btn_cancelar {
-                background-color: #EF4444;
-                color: white;
-                border: none;
-                border-radius: 21px;
-            }
-            QPushButton#btn_cancelar:hover {
-                background-color: #DC2626;
-            }
-        """)
-        
-        self.btn_confirmar = QPushButton("Cobrar", cuerpo)
-        self.btn_confirmar.setObjectName("btn_confirmar")
-        self.btn_confirmar.setFixedSize(140, 42)
-        self.btn_confirmar.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.btn_confirmar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_confirmar.clicked.connect(self.accept)
-        self.btn_confirmar.setEnabled(False)
-        self.btn_confirmar.setStyleSheet("""
-            QPushButton#btn_confirmar {
-                background-color: #2563EB;
-                color: white;
-                border: none;
-                border-radius: 21px;
-            }
-            QPushButton#btn_confirmar:hover {
-                background-color: #1D4ED8;
-            }
-            QPushButton#btn_confirmar:disabled {
-                background-color: #E2E8F0;
-                color: #94A3B8;
-            }
-        """)
-        
-        btn_layout.addWidget(self.btn_cancelar)
-        btn_layout.addWidget(self.btn_confirmar)
-        layout_cuerpo_interno.addLayout(btn_layout)
-        
-        layout_body.addWidget(cuerpo)
-        
-        # Enfoque inicial en Monto Recibido
-        self.txt_recibido.setFocus()
-        
-        # Instalar event filter para navegación por teclado
-        self.txt_recibido.installEventFilter(self)
-        self.btn_cancelar.installEventFilter(self)
-        self.btn_confirmar.installEventFilter(self)
- 
-    def _on_recibido_changed(self, texto):
-        try:
-            texto = texto.replace(",", ".")
-            monto = float(texto) if texto else 0.0
-        except ValueError:
-            monto = 0.0
-            
-        self.monto_recibido = monto
-        
-        if monto >= self.total_pagar:
-            self.cambio = round(monto - self.total_pagar, 2)
-            self.lbl_cambio_valor.setText(f"$ {self.cambio:.2f}")
-            self.btn_confirmar.setEnabled(True)
+
+        sombra_busqueda = QGraphicsDropShadowEffect()
+        sombra_busqueda.setBlurRadius(24)
+        sombra_busqueda.setOffset(0, 2)
+        sombra_busqueda.setColor(QColor(96, 165, 250, 50))
+        self.barra_busqueda.setGraphicsEffect(sombra_busqueda)
+
+        layout.addWidget(self.barra_busqueda)
+        layout.addStretch(1)
+
+        self.btn_cajero = self._crear_boton_header("  Cajero", activo=True)
+        self.btn_admin = self._crear_boton_header("  Admin.")
+        self.btn_admin.clicked.connect(self.senal_ir_admin.emit)
+
+        layout.addWidget(self.btn_cajero)
+        layout.addWidget(self.btn_admin)
+
+        return header
+
+    def _crear_boton_header(self, texto: str, activo: bool = False) -> QPushButton:
+        btn = QPushButton(texto)
+        btn.setFixedHeight(38)
+        btn.setMinimumWidth(110)
+        btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        if activo:
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {Colors.HEADER_BTN_ACTIVE};
+                    color: white;
+                    border: 1.5px solid {Colors.HEADER_BTN_ACTIVE_BORDER};
+                    border-radius: 10px;
+                    padding: 0 18px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(96, 165, 250, 0.35);
+                }}
+            """)
         else:
-            self.cambio = 0.0
-            self.lbl_cambio_valor.setText("$ 0.00")
-            self.btn_confirmar.setEnabled(False)
- 
-    def eventFilter(self, watched, event):
-        from PyQt6.QtCore import QEvent
-        if event.type() == QEvent.Type.KeyPress:
-            key = event.key()
-            if watched == self.txt_recibido:
-                if key == Qt.Key.Key_Down:
-                    self.btn_cancelar.setFocus()
-                    return True
-                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    if self.btn_confirmar.isEnabled():
-                        self.accept()
-                        return True
-            elif watched == self.btn_cancelar:
-                if key == Qt.Key.Key_Up:
-                    self.txt_recibido.setFocus()
-                    return True
-                elif key == Qt.Key.Key_Right:
-                    self.btn_confirmar.setFocus()
-                    return True
-                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    self.reject()
-                    return True
-            elif watched == self.btn_confirmar:
-                if key == Qt.Key.Key_Up:
-                    self.txt_recibido.setFocus()
-                    return True
-                elif key == Qt.Key.Key_Left:
-                    self.btn_cancelar.setFocus()
-                    return True
-                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    if self.btn_confirmar.isEnabled():
-                        self.accept()
-                        return True
-                        
-        return super().eventFilter(watched, event)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {Colors.HEADER_BTN};
+                    color: white;
+                    border: 1.5px solid transparent;
+                    border-radius: 10px;
+                    padding: 0 18px;
+                }}
+                QPushButton:hover {{
+                    background-color: {Colors.HEADER_BTN_HOVER};
+                    border: 1.5px solid rgba(255,255,255,0.15);
+                }}
+            """)
+        return btn
+
+    def _crear_campos_cobro(self) -> QGridLayout:
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(25)
+
+        font_label = QFont()
+        font_label.setPointSize(14)
+        
+        font_valor = QFont()
+        font_valor.setPointSize(14)
+        font_valor.setBold(True)
+
+        lbl_total = QLabel("Total a pagar:")
+        lbl_total.setFont(font_label)
+        lbl_monto = QLabel("Monto recibido:")
+        lbl_monto.setFont(font_label)
+        lbl_cambio = QLabel("Cambio:")
+        lbl_cambio.setFont(font_label)
+
+        self._lbl_total_valor = QLabel("------ $")
+        self._lbl_total_valor.setFont(font_valor)
+        self._lbl_cambio_valor = QLabel("------ $")
+        self._lbl_cambio_valor.setFont(font_valor)
+
+        self._inp_monto = QLineEdit()
+        self._inp_monto.setPlaceholderText("Efectivo")
+        self._inp_monto.setValidator(QDoubleValidator(0.0, 999999.99, 2, self))
+        self._inp_monto.setFont(font_valor)
+        self._inp_monto.setFixedWidth(110)
+        self._inp_monto.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._inp_monto.textChanged.connect(self._actualizar_cambio)
+
+        lbl_simbolo = QLabel("$")
+        lbl_simbolo.setFont(font_valor)
+
+        layout_input = QHBoxLayout()
+        layout_input.setContentsMargins(0, 0, 0, 0)
+        layout_input.setSpacing(8)
+        layout_input.addWidget(self._inp_monto)
+        layout_input.addWidget(lbl_simbolo)
+
+        grid.addWidget(lbl_total, 0, 0, Qt.AlignmentFlag.AlignLeft)
+        grid.addWidget(self._lbl_total_valor, 0, 2, Qt.AlignmentFlag.AlignRight)
+
+        grid.addWidget(lbl_monto, 1, 0, Qt.AlignmentFlag.AlignLeft)
+        grid.addLayout(layout_input, 1, 2, Qt.AlignmentFlag.AlignRight)
+
+        grid.addWidget(lbl_cambio, 2, 0, Qt.AlignmentFlag.AlignLeft)
+        grid.addWidget(self._lbl_cambio_valor, 2, 2, Qt.AlignmentFlag.AlignRight)
+
+        grid.setColumnStretch(1, 1)
+
+        return grid
+
+    def _crear_botones_centrales(self) -> QHBoxLayout:
+        layout = QHBoxLayout()
+        layout.setSpacing(20)
+        layout.addStretch()
+
+        self._btn_regresar = QPushButton("Regresar al carrito")
+        self._btn_regresar.setFixedHeight(40)
+        self._btn_regresar.setStyleSheet(
+            "QPushButton { background-color: #f0a500; color: white; border-radius: 12px; padding: 0 20px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #d4920a; }"
+        )
+        self._btn_regresar.clicked.connect(self.regresar_carrito.emit)
+        layout.addWidget(self._btn_regresar)
+
+        self._btn_confirmar = QPushButton("Confirmar cobro")
+        self._btn_confirmar.setFixedHeight(40)
+        self._btn_confirmar.setEnabled(False)
+        self._btn_confirmar.setStyleSheet(
+            "QPushButton:enabled { background-color: #2196F3; color: white; border-radius: 12px; padding: 0 20px; font-weight: bold; }"
+            "QPushButton:disabled { background-color: #b0bec5; color: #fff; border-radius: 12px; padding: 0 20px; }"
+            "QPushButton:enabled:hover { background-color: #1565C0; }"
+        )
+        self._btn_confirmar.clicked.connect(self._confirmar_cobro)
+        layout.addWidget(self._btn_confirmar)
+
+        layout.addStretch()
+        return layout
+
+    def _crear_btn_cancelar(self) -> QPushButton:
+        btn = QPushButton("Cancelar Venta")
+        btn.setFixedHeight(40)
+        btn.setStyleSheet(
+            "QPushButton { background-color: #e53935; color: white; border-radius: 12px; padding: 0 22px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #b71c1c; }"
+        )
+        btn.clicked.connect(self._solicitar_cancelacion)
+        return btn
+
+    # ------------------------------------------------------------------ #
+    #  Lógica                                                            #
+    # ------------------------------------------------------------------ #
+
+    def cargar_total(self, total: float):
+        self._total = total
+        self._lbl_total_valor.setText(f"{total:,.2f} $")
+        self._inp_monto.clear()
+        self._lbl_cambio_valor.setText("------ $")
+        self._btn_confirmar.setEnabled(False)
+
+    def _actualizar_cambio(self, texto: str):
+        texto = texto.strip()
+        if not texto:
+            self._lbl_cambio_valor.setText("------ $")
+            self._btn_confirmar.setEnabled(False)
+            return
+
+        try:
+            monto = float(texto)
+        except ValueError:
+            self._lbl_cambio_valor.setText("------ $")
+            self._btn_confirmar.setEnabled(False)
+            return
+
+        cambio = monto - self._total
+        if cambio < 0:
+            self._lbl_cambio_valor.setText("------ $")
+            self._lbl_cambio_valor.setStyleSheet("color: red;")
+            self._btn_confirmar.setEnabled(False)
+        else:
+            self._lbl_cambio_valor.setText(f"{cambio:,.2f} $")
+            self._lbl_cambio_valor.setStyleSheet("")
+            self._btn_confirmar.setEnabled(True)
+
+    def _confirmar_cobro(self):
+        try:
+            monto = float(self._inp_monto.text())
+        except ValueError:
+            return
+
+        cambio = monto - self._total
+
+        try:
+            self._gestor_ventas.confirmar_venta(self._gestor_carrito.obtener_items())
+        except Exception as e:
+            QMessageBox.critical(self, "Error al confirmar", f"No se pudo registrar la venta:\n{e}")
+            return
+
+        self.cobro_confirmado.emit(monto, cambio)
+
+    def _solicitar_cancelacion(self):
+        respuesta = QMessageBox.question(
+            self,
+            "Cancelar Venta",
+            "¿Deseas cancelar la venta actual?\nSe perderán todos los productos del carrito.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if respuesta == QMessageBox.StandardButton.Yes:
+            self._gestor_carrito.vaciar_carrito()
+            self.venta_cancelada.emit()
+
+# ══════════════════════════════════════════════════ #
+#  CÓDIGO DE PRUEBA INTEGRADO (STANDALONE)           #
+# ══════════════════════════════════════════════════ #
+if __name__ == "__main__":
+    import sys
+    from PyQt6.QtWidgets import QApplication
+
+    # Simulador de funciones (mock)
+    class MockGestor:
+        def obtener_items(self): 
+            return []
+        def confirmar_venta(self, items): 
+            print("SIMULACIÓN: Venta confirmada correctamente en base de datos.")
+        def vaciar_carrito(self): 
+            print("SIMULACIÓN: Carrito vaciado.")
+
+    app = QApplication(sys.argv)
+
+    ventana = PantallaCobro(gestor_carrito=MockGestor(), gestor_ventas=MockGestor())
+    
+    ventana.cargar_total(1250.50)
+    
+    ventana.show()
+    sys.exit(app.exec())
