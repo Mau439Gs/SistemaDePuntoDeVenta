@@ -501,3 +501,17 @@ class DialogoPIN(QDialog):
                 self._on_ingresar()
         else:
             super().keyPressEvent(event)
+
+# ══════════════════════════════════════════════════ #
+#  CÓDIGO DE PRUEBA INTEGRADO (STANDALONE)           #
+# ══════════════════════════════════════════════════ #
+if __name__ == "__main__":
+    import sys
+    from PyQt6.QtWidgets import QApplication
+
+    app = QApplication(sys.argv)
+
+    dialogo = DialogoPIN()
+    dialogo.exec()
+
+    sys.exit()
