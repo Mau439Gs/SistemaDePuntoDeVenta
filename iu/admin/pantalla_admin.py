@@ -475,25 +475,20 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    # Fuente global
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
-    # Instanciamos la ventana
     ventana = PantallaAdmin()
     ventana.setWindowTitle("Punto de Venta — Admin")
-    ventana.resize(1200, 800) # Mismo tamaño que el cajero
+    ventana.resize(1200, 800)
     
-    # --- DATOS DE PRUEBA (Solo para previsualizar el diseño) ---
     productos_prueba = [
         {"id_producto": 1, "nombre": "Coca Cola 600ml", "precio_venta": 18.00, "precio_compra": 12.00, "stock_actual": 45, "stock_minimo": 10, "tipo_venta": "pieza"},
         {"id_producto": 2, "nombre": "Frijol Peruano", "precio_venta": 42.50, "precio_compra": 28.00, "stock_actual": 8.5, "stock_minimo": 10, "tipo_venta": "granel"}, # Stock bajo (Saldrá en rojo)
         {"id_producto": 3, "nombre": "Galletas Emperador", "precio_venta": 22.00, "precio_compra": 16.50, "stock_actual": 0, "stock_minimo": 5, "tipo_venta": "pieza"}   # Agotado
     ]
     ventana.cargar_catalogo(productos_prueba)
-    # -----------------------------------------------------------
 
     ventana.show()
 
-    # ESTO REEMPLAZA A main() — Arranca la aplicación de PyQt6
     sys.exit(app.exec())
