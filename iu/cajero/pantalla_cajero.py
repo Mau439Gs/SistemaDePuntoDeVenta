@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QDialog, QListWidget, QListWidgetItem, QFrame
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QPoint, QTimer
 from PyQt6.QtGui import (
     QFont, QColor, QLinearGradient, QPainter,
     QPaintEvent, QIcon, QPen, QPixmap, QIntValidator, QDoubleValidator
@@ -295,6 +295,9 @@ class SelectorCantidadTabla(QWidget):
 
         # Estilo visual moderno y limpio
         self.setStyleSheet("""
+            SelectorCantidadTabla {
+                background: transparent;
+            }
             QPushButton {
                 background-color: #F1F5F9;
                 border: 1px solid #CBD5E1;
@@ -430,14 +433,17 @@ class BotonEliminarTabla(QPushButton):
 #  Diálogo de Confirmación de Eliminación
 # ══════════════════════════════════════════════════
 
-class DialogoConfirmacion(QDialog):
-    """Diálogo modal para confirmar eliminación con cabecera azul y botones estilo cápsula."""
-    
-    def __init__(self, parent=None):
+class DialogoBaseCabecera(QDialog):
+    """Clase base para diálogos con cabecera azul y botones cápsula."""
+    def __init__(self, titulo: str, texto_confirmar: str, texto_cancelar: str, parent=None):
         super().__init__(parent)
+        self.titulo = titulo
+        self.texto_confirmar = texto_confirmar
+        self.texto_cancelar = texto_cancelar
+        
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFixedSize(500, 240)
+        self.setFixedSize(380, 160)
         self._setup_ui()
         
     def mousePressEvent(self, event):
@@ -469,10 +475,10 @@ class DialogoConfirmacion(QDialog):
         layout_body.setContentsMargins(0, 0, 0, 0)
         layout_body.setSpacing(0)
         
-        # Cabecera Azul (Confirmar eliminación)
+        # Cabecera Azul
         cabecera = QFrame()
         cabecera.setObjectName("Cabecera")
-        cabecera.setFixedHeight(60)
+        cabecera.setFixedHeight(50)
         cabecera.setStyleSheet("""
             QFrame#Cabecera {
                 background-color: #2563EB;
@@ -484,76 +490,110 @@ class DialogoConfirmacion(QDialog):
         layout_cabecera = QHBoxLayout(cabecera)
         layout_cabecera.setContentsMargins(0, 0, 0, 0)
         
-        lbl_titulo = QLabel("Confirmar eliminación", cabecera)
-        lbl_titulo.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
+        lbl_titulo = QLabel(self.titulo, cabecera)
+        lbl_titulo.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         lbl_titulo.setStyleSheet("color: white; border: none;")
         lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_cabecera.addWidget(lbl_titulo)
-        
         layout_body.addWidget(cabecera)
         
-        # Cuerpo del diálogo
+        # Cuerpo
         cuerpo = QWidget()
         layout_cuerpo_interno = QVBoxLayout(cuerpo)
-        layout_cuerpo_interno.setContentsMargins(24, 24, 24, 24)
-        layout_cuerpo_interno.setSpacing(20)
+        layout_cuerpo_interno.setContentsMargins(16, 24, 16, 24)
+        layout_cuerpo_interno.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Botones Cápsula
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(24)
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        self.btn_confirmar = QPushButton("Confirmar", cuerpo)
+        self.btn_confirmar = QPushButton(self.texto_confirmar, cuerpo)
         self.btn_confirmar.setObjectName("btn_confirmar")
-        self.btn_confirmar.setFixedSize(140, 42)
+        self.btn_confirmar.setFixedSize(120, 42)
         self.btn_confirmar.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.btn_confirmar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_confirmar.clicked.connect(self.accept)
         self.btn_confirmar.setStyleSheet("""
             QPushButton#btn_confirmar {
-                background-color: #2563EB; /* <-- Tu nuevo color base */
+                background-color: #52C5D8; /* Celeste original */
                 color: white;
                 border: none;
                 border-radius: 21px;
             }
             QPushButton#btn_confirmar:hover {
-                background-color: #1D4ED8; /* <-- Color hover */
+                background-color: #42AFC1;
             }
             QPushButton#btn_confirmar:pressed {
-                background-color: #1E40AF; /* <-- Color presionado */
+                background-color: #339AA8;
             }
         """)
         
-        self.btn_cancelar = QPushButton("Cancelar", cuerpo)
+        self.btn_cancelar = QPushButton(self.texto_cancelar, cuerpo)
         self.btn_cancelar.setObjectName("btn_cancelar")
-        self.btn_cancelar.setFixedSize(140, 42)
+        self.btn_cancelar.setFixedSize(120, 42)
         self.btn_cancelar.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_cancelar.clicked.connect(self.reject)
         self.btn_cancelar.setStyleSheet("""
             QPushButton#btn_cancelar {
-                background-color: #EF4444;
+                background-color: #DE4A4A; /* Rojo original */
                 color: white;
                 border: none;
                 border-radius: 21px;
             }
             QPushButton#btn_cancelar:hover {
-                background-color: #DC2626;
+                background-color: #C63D3D;
             }
             QPushButton#btn_cancelar:pressed {
-                background-color: #B91C1C;
+                background-color: #AF3030;
             }
         """)
         
         btn_layout.addWidget(self.btn_confirmar)
         btn_layout.addWidget(self.btn_cancelar)
-        
         layout_cuerpo_interno.addLayout(btn_layout)
         layout_body.addWidget(cuerpo)
         
-        # Foco predeterminado en Cancelar por seguridad (C-003)
+        # Foco predeterminado en el botón derecho (Cancelar/No) por seguridad
         self.btn_cancelar.setDefault(True)
         self.btn_cancelar.setFocus()
+
+        # Instalar event filter para navegación por teclado
+        self.btn_confirmar.installEventFilter(self)
+        self.btn_cancelar.installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        from PyQt6.QtCore import QEvent
+        if event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            if watched == self.btn_confirmar:
+                if key == Qt.Key.Key_Right:
+                    self.btn_cancelar.setFocus()
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self.accept()
+                    return True
+            elif watched == self.btn_cancelar:
+                if key == Qt.Key.Key_Left:
+                    self.btn_confirmar.setFocus()
+                    return True
+                elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self.reject()
+                    return True
+        return super().eventFilter(watched, event)
+
+
+class DialogoConfirmacion(DialogoBaseCabecera):
+    """Diálogo modal para confirmar eliminación con cabecera azul y botones estilo cápsula."""
+    def __init__(self, nombre_producto: str = "", parent=None):
+        super().__init__("Confirmar eliminación", "Confirmar", "Cancelar", parent)
+
+
+class DialogoEliminarCarrito(DialogoBaseCabecera):
+    """Diálogo modal para confirmar vaciado de carrito con cabecera azul."""
+    def __init__(self, parent=None):
+        super().__init__("Eliminar carrito", "sí", "NO", parent)
 
 
 # ══════════════════════════════════════════════════
@@ -648,7 +688,7 @@ class PantallaCajero(QWidget):
         # Tabla QTableWidget
         self.tabla_carrito = QTableWidget()
         self.tabla_carrito.setColumnCount(5)
-        self.tabla_carrito.setHorizontalHeaderLabels(["producto", "cantidad", "precio", "subtotal", ""])
+        self.tabla_carrito.setHorizontalHeaderLabels(["Producto", "Cantidad", "Precio", "Subtotal", ""])
         self.tabla_carrito.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tabla_carrito.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         self.tabla_carrito.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
@@ -665,6 +705,7 @@ class PantallaCajero(QWidget):
         self.tabla_carrito.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla_carrito.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tabla_carrito.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.tabla_carrito.itemSelectionChanged.connect(self._actualizar_alertas_stock)
         
         self.tabla_carrito.setStyleSheet("""
             QTableWidget {
@@ -700,15 +741,23 @@ class PantallaCajero(QWidget):
 
         # Panel de Total (centrado)
         self.panel_total = QWidget()
-        layout_total = QHBoxLayout(self.panel_total)
+        layout_total = QVBoxLayout(self.panel_total)
         layout_total.setContentsMargins(0, 20, 0, 12)
+        layout_total.setSpacing(8)
         
         self.lbl_total = QLabel("Total $-----")
         self.lbl_total.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
         self.lbl_total.setStyleSheet("color: #0F172A;")
         self.lbl_total.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
         layout_total.addWidget(self.lbl_total)
+
+        self.lbl_alerta_stock = QLabel("")
+        self.lbl_alerta_stock.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        self.lbl_alerta_stock.setStyleSheet("color: #EF4444; background: transparent; border: none;")
+        self.lbl_alerta_stock.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_alerta_stock.setVisible(False)
+        layout_total.addWidget(self.lbl_alerta_stock)
+        
         self.layout_central.addWidget(self.panel_total)
         layout_principal.addWidget(self.contenedor_central)
 
@@ -1016,30 +1065,6 @@ class PantallaCajero(QWidget):
         if not prod:
             return
             
-        if prod['stock_actual'] <= 0:
-            self.panel_resultados.hide()
-            self.barra_busqueda.clear()
-            return
-            
-        # Verificar límite de stock antes de agregar o incrementar
-        item_existente = next((it for it in self.gestor_carrito.obtener_items() if it.producto['id_producto'] == prod['id_producto']), None)
-        cant_nueva = 1.0
-        if item_existente:
-            cant_nueva = item_existente.cantidad + 1.0
-            
-        if cant_nueva > prod['stock_actual']:
-            from PyQt6.QtWidgets import QMessageBox
-            stock_disp = prod['stock_actual']
-            cant_stock_str = f"{stock_disp:.1f}" if prod['tipo_venta'] == 'granel' else f"{int(stock_disp)}"
-            QMessageBox.warning(
-                self, 
-                "Stock Insuficiente", 
-                f"El stock en tienda actual de {prod['nombre']} es: {cant_stock_str}"
-            )
-            self.panel_resultados.hide()
-            self.barra_busqueda.clear()
-            return
-            
         self.gestor_carrito.agregar_producto(prod, 1.0)
         self.panel_resultados.hide()
         self.barra_busqueda.clear()
@@ -1111,13 +1136,16 @@ class PantallaCajero(QWidget):
             
             # Centrar botón en celda
             contenedor = QWidget()
+            contenedor.setStyleSheet("background: transparent;")
             layout_btn = QHBoxLayout(contenedor)
             layout_btn.setContentsMargins(0, 0, 0, 0)
             layout_btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout_btn.addWidget(btn_eliminar)
             self.tabla_carrito.setCellWidget(idx, 4, contenedor)
             
-        if fila_sel >= 0 and fila_sel < self.tabla_carrito.rowCount():
+        if not vacio:
+            if fila_sel < 0 or fila_sel >= self.tabla_carrito.rowCount():
+                fila_sel = self.tabla_carrito.rowCount() - 1
             self.tabla_carrito.setCurrentCell(fila_sel, 0)
             
         total = self.gestor_carrito.calcular_total()
@@ -1127,39 +1155,50 @@ class PantallaCajero(QWidget):
             self.lbl_total.setText(f"Total ${total:.2f}")
         
         self.btn_avanzar.setEnabled(not vacio)
+        self._actualizar_alertas_stock()
+
+    def _actualizar_alertas_stock(self):
+        row = self.tabla_carrito.currentRow()
+        if row < 0:
+            if self.gestor_carrito and not self.gestor_carrito.esta_vacio():
+                row = len(self.gestor_carrito.obtener_items()) - 1
+            else:
+                self.lbl_alerta_stock.setVisible(False)
+                return
+                
+        if not self.gestor_carrito:
+            self.lbl_alerta_stock.setVisible(False)
+            return
+            
+        items = self.gestor_carrito.obtener_items()
+        if row >= len(items):
+            self.lbl_alerta_stock.setVisible(False)
+            return
+            
+        item = items[row]
+        prod = item.producto
+        es_gr = prod['tipo_venta'] == 'granel'
+        
+        stock_inicial = prod.get('stock_actual', 0.0)
+        cantidad_carrito = item.cantidad
+        stock_restante = round(stock_inicial - cantidad_carrito, 2)
+        stock_minimo = prod.get('stock_minimo', 0.0)
+        
+        if stock_restante <= 0:
+            self.lbl_alerta_stock.setText(f"{prod['nombre']}\nAGOTADO")
+            self.lbl_alerta_stock.setVisible(True)
+        elif stock_restante < stock_minimo:
+            stock_str = f"{stock_restante:.2f}" if es_gr else f"{int(stock_restante)}"
+            self.lbl_alerta_stock.setText(
+                f"El stock en tienda actual de\n{prod['nombre']}\nes: {stock_str}"
+            )
+            self.lbl_alerta_stock.setVisible(True)
+        else:
+            self.lbl_alerta_stock.setVisible(False)
 
     def _on_cantidad_cambiada(self, id_producto, nueva_cantidad):
         if nueva_cantidad <= 0:
-            self._confirmar_y_eliminar(id_producto)
-            return
-
-        # Obtener el item del carrito para verificar stock
-        items = self.gestor_carrito.obtener_items()
-        item_car = next((it for it in items if it.producto['id_producto'] == id_producto), None)
-        if not item_car:
-            return
-
-        prod = item_car.producto
-        stock = prod['stock_actual']
-        es_gr = prod['tipo_venta'] == 'granel'
-
-        if nueva_cantidad > stock:
-            from PyQt6.QtWidgets import QMessageBox
-            stock_str = f"{stock:.1f}" if es_gr else f"{int(stock)}"
-            QMessageBox.warning(
-                self,
-                "Stock Insuficiente",
-                f"El stock en tienda actual de {prod['nombre']} es: {stock_str}"
-            )
-            # Revertir la cantidad del selector visual al valor actual del modelo
-            for r in range(self.tabla_carrito.rowCount()):
-                if self._obtener_id_producto_fila(r) == id_producto:
-                    selector = self.tabla_carrito.cellWidget(r, 1)
-                    if isinstance(selector, SelectorCantidadTabla):
-                        selector.cantidad = item_car.cantidad
-                        selector.txt_cantidad.setText(selector._formatear_cantidad(item_car.cantidad))
-                        selector._actualizar_estados_botones()
-                    break
+            QTimer.singleShot(0, lambda: self._confirmar_y_eliminar(id_producto))
             return
 
         self.gestor_carrito.modificar_cantidad(id_producto, nueva_cantidad)
@@ -1182,15 +1221,26 @@ class PantallaCajero(QWidget):
             self.lbl_total.setText("Total $-----")
         else:
             self.lbl_total.setText(f"Total ${total:.2f}")
+        self._actualizar_alertas_stock()
 
     def _on_eliminar_clicked(self, id_producto):
         self._confirmar_y_eliminar(id_producto)
 
     def _confirmar_y_eliminar(self, id_producto):
-        diag = DialogoConfirmacion(self)
+        items = self.gestor_carrito.obtener_items()
+        item = next((it for it in items if it.producto['id_producto'] == id_producto), None)
+        nombre = item.producto['nombre'] if item else "el producto"
+        diag = DialogoConfirmacion(nombre, self)
         if diag.exec() == QDialog.DialogCode.Accepted:
             self.gestor_carrito.eliminar_item(id_producto)
         self._actualizar_tabla()
+        
+        # Devolver foco al carrito o a la barra de búsqueda si quedó vacío
+        if self.gestor_carrito.esta_vacio():
+            self.barra_busqueda.setFocus()
+            self.barra_busqueda.selectAll()
+        else:
+            self.tabla_carrito.setFocus()
 
     def _obtener_id_producto_fila(self, row: int):
         if not self.gestor_carrito:
@@ -1217,7 +1267,7 @@ class PantallaCajero(QWidget):
             nueva = round(item.cantidad - paso, 2)
             
         if nueva < min_lim:
-            self._confirmar_y_eliminar(id_producto)
+            QTimer.singleShot(0, lambda: self._confirmar_y_eliminar(id_producto))
         else:
             self._on_cantidad_cambiada(id_producto, nueva)
 
@@ -1291,6 +1341,12 @@ class PantallaCajero(QWidget):
                             self._on_eliminar_clicked(id_prod)
                             return True
                 elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    # Si el foco está en un control de edición dentro de la tabla, no avanzar al cobro
+                    from PyQt6.QtWidgets import QApplication
+                    foco = QApplication.focusWidget()
+                    if foco and (self.tabla_carrito.isAncestorOf(foco) or isinstance(foco, QLineEdit)):
+                        return True  # Consumir el evento para que la tabla no avance al cobro
+                    
                     if self.btn_avanzar.isEnabled():
                         self.senal_avanzar_cobro.emit()
                         return True
@@ -1340,19 +1396,32 @@ class PantallaCajero(QWidget):
         
         # 2. Mostrar Pantalla de Cobro (monto recibido y cambio)
         from iu.cajero.pantalla_cobro import PantallaCobro
-        dlg_cobro = PantallaCobro(total, self)
+        dlg_cobro = PantallaCobro(self.gestor_carrito, self.gestor_ventas, self)
+        dlg_cobro.cargar_total(total)
+        
+        # Conectar señales al flujo del diálogo modal
+        dlg_cobro.cobro_confirmado.connect(lambda m, c: dlg_cobro.accept())
+        dlg_cobro.regresar_carrito.connect(dlg_cobro.reject)
+        dlg_cobro.venta_cancelada.connect(dlg_cobro.reject)
+        
         if dlg_cobro.exec() != QDialog.DialogCode.Accepted:
+            # Si se rechazó (ej. al cancelar la venta) pero el carrito está vacío,
+            # actualizamos la interfaz del cajero para reflejarlo
+            if self.gestor_carrito.esta_vacio():
+                self._actualizar_tabla()
             return
             
-        monto_recibido = dlg_cobro.monto_recibido
-        
-        # 3. Confirmar la venta en la base de datos (descuenta stock, transaccional)
-        try:
-            resultado = self.gestor_ventas.confirmar_venta(monto_recibido)
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.critical(self, "Error de Venta", f"No se pudo completar la venta: {e}")
-            return
+        # 3. Obtener el resultado de la venta ya procesada y confirmada
+        resultado = getattr(dlg_cobro, 'resultado_venta', None)
+        if not resultado:
+            # Fallback de seguridad por si no se guardó el resultado en el diálogo
+            monto_recibido = float(dlg_cobro._inp_monto.text())
+            try:
+                resultado = self.gestor_ventas.confirmar_venta(monto_recibido)
+            except Exception as e:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(self, "Error de Venta", f"No se pudo completar la venta: {e}")
+                return
             
         # 4. Preguntar si requiere ticket
         from iu.cajero.pantalla_ticket import DialogoRequiereTicket, PantallaTicket
@@ -1404,40 +1473,8 @@ class PantallaCajero(QWidget):
             self.senal_cancelar_venta.emit()
             return
             
-        from PyQt6.QtWidgets import QMessageBox
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Eliminar carrito")
-        msg.setText("¿Estás seguro de que deseas cancelar la venta?\nSe vaciará el carrito por completo.")
-        btn_si = msg.addButton("Sí", QMessageBox.ButtonRole.YesRole)
-        btn_no = msg.addButton("No", QMessageBox.ButtonRole.NoRole)
-        msg.setDefaultButton(btn_no)
-        
-        msg.setStyleSheet("""
-            QMessageBox {
-                background-color: white;
-                font-family: "Segoe UI";
-            }
-            QLabel {
-                font-size: 15px;
-                color: #1E293B;
-            }
-            QPushButton {
-                background-color: #F1F5F9;
-                color: #475569;
-                border: 1px solid #CBD5E1;
-                border-radius: 8px;
-                padding: 8px 18px;
-                font-weight: bold;
-                font-size: 14px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #E2E8F0;
-            }
-        """)
-        
-        msg.exec()
-        if msg.clickedButton() == btn_si:
+        diag = DialogoEliminarCarrito(self)
+        if diag.exec() == QDialog.DialogCode.Accepted:
             self.gestor_carrito.vaciar_carrito()
             self._actualizar_tabla()
             self.senal_cancelar_venta.emit()

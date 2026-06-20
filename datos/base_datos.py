@@ -304,7 +304,7 @@ class BaseDatos:
         self.cursor.execute("""
             SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual 
             FROM PRODUCTOS 
-            WHERE nombre LIKE ?;
-        """, (f"%{termino}%",))
+            WHERE nombre LIKE ? OR CAST(id_producto AS TEXT) LIKE ?;
+        """, (f"%{termino}%", f"%{termino}%"))
         return [dict(fila) for fila in self.cursor.fetchall()]
 

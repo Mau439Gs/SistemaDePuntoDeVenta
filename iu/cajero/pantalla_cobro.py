@@ -6,7 +6,7 @@ Encargado: Mauricio S. Castillo
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QLineEdit, QPushButton,
+    QWidget, QDialog, QLabel, QLineEdit, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
     QMessageBox, QSizePolicy, QGraphicsDropShadowEffect
 )
@@ -70,7 +70,7 @@ def crear_icono_lupa(size: int = 22, color: QColor = QColor(255, 255, 255, 160))
 # ══════════════════════════════════════════════════
 #  Clase Principal
 # ══════════════════════════════════════════════════
-class PantallaCobro(QWidget):
+class PantallaCobro(QDialog):
     """
     Pantalla de cobro del módulo cajero con barra superior.
     """
@@ -84,10 +84,14 @@ class PantallaCobro(QWidget):
 
     def __init__(self, gestor_carrito, gestor_ventas, parent=None):
         super().__init__(parent)
+        self.setWindowFlag(Qt.WindowType.Window)
         self._gestor_carrito = gestor_carrito
         self._gestor_ventas = gestor_ventas
         self._total = 0.0
-        self.resize(1200, 800)
+        if parent:
+            self.setGeometry(parent.geometry())
+        else:
+            self.resize(1200, 800)
         self._configurar_ui()
 
     # ------------------------------------------------------------------ #
@@ -260,6 +264,9 @@ class PantallaCobro(QWidget):
         self._inp_monto.setFixedWidth(110)
         self._inp_monto.setAlignment(Qt.AlignmentFlag.AlignRight)
         self._inp_monto.textChanged.connect(self._actualizar_cambio)
+        self._inp_monto.returnPressed.connect(
+            lambda: self._confirmar_cobro() if self._btn_confirmar.isEnabled() else None
+        )
 
         lbl_simbolo = QLabel("$")
         lbl_simbolo.setFont(font_valor)
@@ -365,7 +372,7 @@ class PantallaCobro(QWidget):
         cambio = monto - self._total
 
         try:
-            self._gestor_ventas.confirmar_venta(self._gestor_carrito.obtener_items())
+            self.resultado_venta = self._gestor_ventas.confirmar_venta(monto)
         except Exception as e:
             QMessageBox.critical(self, "Error al confirmar", f"No se pudo registrar la venta:\n{e}")
             return
@@ -373,14 +380,9 @@ class PantallaCobro(QWidget):
         self.cobro_confirmado.emit(monto, cambio)
 
     def _solicitar_cancelacion(self):
-        respuesta = QMessageBox.question(
-            self,
-            "Cancelar Venta",
-            "¿Deseas cancelar la venta actual?\nSe perderán todos los productos del carrito.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if respuesta == QMessageBox.StandardButton.Yes:
+        from iu.cajero.pantalla_cajero import DialogoEliminarCarrito
+        diag = DialogoEliminarCarrito(self)
+        if diag.exec() == QDialog.DialogCode.Accepted:
             self._gestor_carrito.vaciar_carrito()
             self.venta_cancelada.emit()
 

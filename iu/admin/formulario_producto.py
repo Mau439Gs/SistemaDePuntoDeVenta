@@ -13,10 +13,10 @@ Diálogo modal para crear un producto nuevo o editar uno existente.
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QButtonGroup,
-    QFrame, QWidget
+    QFrame, QWidget, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, QSignalBlocker
-from PyQt6.QtGui import QFont, QDoubleValidator, QLinearGradient, QPainter, QPaintEvent, QColor
+from PyQt6.QtCore import Qt, QSignalBlocker, QSize
+from PyQt6.QtGui import QFont, QDoubleValidator, QLinearGradient, QPainter, QPaintEvent, QColor, QIcon
 
 
 # ── Paleta de colores y estilos unificados ────────────────────────── #
@@ -39,7 +39,7 @@ _C_BTN_CANC = "#EF4444" # Rojo para cancelar
 
 _FONT_LBL = QFont("Segoe UI", 11, QFont.Weight.DemiBold)
 _FONT_INP = QFont("Segoe UI", 11)
-_FONT_BTN = QFont("Segoe UI", 11, QFont.Weight.DemiBold)
+_FONT_BTN = QFont("Segoe UI", 14, QFont.Weight.DemiBold)
 
 
 class _GradientHeader(QWidget):
@@ -80,7 +80,11 @@ class FormularioProducto(QDialog):
         self._modo_edicion = producto is not None
         self._id_producto  = producto.get("id_producto") if producto else None
         
-        self.resize(1200, 800) 
+        self.setWindowFlag(Qt.WindowType.Window)
+        if parent:
+            self.setGeometry(parent.geometry())
+        else:
+            self.resize(1200, 800) 
         
         self.setModal(True)
         self.setStyleSheet(f"background-color: {_C_BG};")
@@ -201,17 +205,24 @@ class FormularioProducto(QDialog):
         fila_btns = QHBoxLayout()
         
         self._btn_cancelar = QPushButton("Cancelar")
-        self._btn_cancelar.setFixedSize(140, 46)
+        self._btn_cancelar.setFixedSize(240, 56)
         self._btn_cancelar.setFont(_FONT_BTN)
         self._btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_cancelar.setStyleSheet(f"""
-            QPushButton {{ background-color: {_C_BTN_CANC}; color: white; border: none; border-radius: 23px; }}
-            QPushButton:hover {{ background-color: #C62828; }}
+            QPushButton {{
+                background-color: #EF4444;
+                color: white;
+                border: none;
+                border-radius: 16px;
+            }}
+            QPushButton:hover {{
+                background-color: #DC2626;
+            }}
         """)
         self._btn_cancelar.clicked.connect(self.reject)
 
         self._btn_guardar = QPushButton("Guardar")
-        self._btn_guardar.setFixedSize(140, 46)
+        self._btn_guardar.setFixedSize(200, 56)
         self._btn_guardar.setFont(_FONT_BTN)
         self._btn_guardar.setCursor(Qt.CursorShape.PointingHandCursor)
         self._aplicar_estilo_guardar(False)
@@ -246,33 +257,62 @@ class FormularioProducto(QDialog):
         
         lay.addStretch() # Empuja los botones a la derecha
 
-        self.btn_cajero = self._crear_boton_nav("  Cajero")
-        self.btn_admin  = self._crear_boton_nav("  Admin.", activo=True)
+        from iu.cajero.pantalla_cajero import crear_icono_bag, crear_icono_gear
+        icono_cajero = crear_icono_bag(22, QColor(148, 163, 184))
+        icono_admin = crear_icono_gear(22, QColor(255, 255, 255))
+
+        self.btn_cajero = self._crear_boton_nav("  Cajero", icono_cajero, activo=False)
+        self.btn_admin  = self._crear_boton_nav("  Admin.", icono_admin, activo=True)
 
         lay.addWidget(self.btn_cajero)
         lay.addWidget(self.btn_admin)
         return header
 
-    def _crear_boton_nav(self, texto: str, activo: bool = False) -> QPushButton:
+    def _crear_boton_nav(self, texto: str, icono: QIcon, activo: bool = False) -> QPushButton:
         btn = QPushButton(texto)
-        btn.setFixedHeight(38)
-        btn.setMinimumWidth(110)
-        btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        btn.setIcon(icono)
+        btn.setIconSize(QSize(22, 22))
+        btn.setFixedHeight(46)
+        btn.setMinimumWidth(150)
+        btn.setFont(QFont("Segoe UI", 13, QFont.Weight.DemiBold))
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
         
         if activo:
             btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {_C_HEADER_BTN_ACT}; color: white;
-                    border: 1.5px solid {_C_HEADER_BORDER}; border-radius: 10px; padding: 0 18px;
+                    background-color: rgba(96, 165, 250, 0.25);
+                    color: #FFFFFF;
+                    border: 1.5px solid #60A5FA;
+                    border-radius: 12px;
+                    padding: 0 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(96, 165, 250, 0.35);
+                    border: 1.5px solid #93C5FD;
                 }}
             """)
+            glow = QGraphicsDropShadowEffect(btn)
+            glow.setBlurRadius(15)
+            glow.setOffset(0, 0)
+            glow.setColor(QColor(96, 165, 250, 100))
+            btn.setGraphicsEffect(glow)
         else:
             btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {_C_HEADER_BTN}; color: white;
-                    border: 1.5px solid transparent; border-radius: 10px; padding: 0 18px;
+                    background-color: rgba(255, 255, 255, 0.04);
+                    color: #94A3B8;
+                    border: 1.5px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 12px;
+                    padding: 0 16px;
                 }}
-                QPushButton:hover {{ background-color: {_C_HEADER_BTN_HV}; }}
+                QPushButton:hover {{
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #FFFFFF;
+                    border: 1.5px solid rgba(255, 255, 255, 0.20);
+                }}
+                QPushButton:pressed {{
+                    background-color: rgba(255, 255, 255, 0.08);
+                }}
             """)
         return btn
 
@@ -372,12 +412,24 @@ class FormularioProducto(QDialog):
     def _aplicar_estilo_guardar(self, habilitado: bool):
         if habilitado:
             self._btn_guardar.setStyleSheet("""
-                QPushButton { background-color: #10B981; color: white; border: none; border-radius: 23px; }
-                QPushButton:hover { background-color: #059669; }
+                QPushButton {
+                    background-color: #10B981;
+                    color: white;
+                    border: none;
+                    border-radius: 16px;
+                }
+                QPushButton:hover {
+                    background-color: #059669;
+                }
             """)
         else:
             self._btn_guardar.setStyleSheet(f"""
-                QPushButton {{ background-color: {_C_BTN_OFF}; color: white; border: none; border-radius: 23px; }}
+                QPushButton {{
+                    background-color: {_C_BTN_OFF};
+                    color: white;
+                    border: none;
+                    border-radius: 16px;
+                }}
             """)
 
 

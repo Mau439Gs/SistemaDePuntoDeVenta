@@ -47,7 +47,8 @@ class GestorVentas:
     # ──────────────────────────────────────────────
 
     def validar_stock(self) -> list:
-        """Verifica que todos los productos del carrito tengan stock suficiente.
+        """Verifica que todos los productos del carrito tengan stock suficiente
+        consultando la base de datos en tiempo real.
 
         Referencia SRS G-001:
         'El stock nunca debe descender por debajo de cero; si rebasa el
@@ -57,13 +58,21 @@ class GestorVentas:
             Lista de mensajes de error. Si está vacía, todo es válido.
         """
         errores = []
+        self.db._asegurar_conexion()
         for item in self.carrito.obtener_items():
             producto = item.producto
-            if item.cantidad > producto['stock_actual']:
-                errores.append(
-                    f"El stock en tienda actual de {producto['nombre']} "
-                    f"es: {producto['stock_actual']}"
-                )
+            id_producto = producto['id_producto']
+            res = self.db.consultar_uno(
+                "SELECT stock_actual, nombre FROM PRODUCTOS WHERE id_producto = ?;",
+                (id_producto,)
+            )
+            if res:
+                stock_actual = res['stock_actual']
+                if item.cantidad > stock_actual:
+                    errores.append(
+                        f"El stock en tienda actual de {res['nombre']} "
+                        f"es: {stock_actual}"
+                    )
         return errores
 
     # ──────────────────────────────────────────────

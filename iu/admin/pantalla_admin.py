@@ -9,13 +9,17 @@ Encargados: Mauricio S. Castillo (A-004/A-009/A-011/A-016)
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QFrame,
-    QSizePolicy, QGraphicsDropShadowEffect, QDialog
+    QSizePolicy, QGraphicsDropShadowEffect, QDialog,
+    QMessageBox, QFileDialog
 )
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import (
     QFont, QColor, QLinearGradient, QPainter,
     QPaintEvent, QIcon, QPen, QPixmap
 )
+import os
+from datetime import datetime
+from iu.admin.formulario_producto import FormularioProducto
 
 
 # ══════════════════════════════════════════════════ #
@@ -99,7 +103,7 @@ class _DialogoConfirmarReporte(QDialog):
         fila.addStretch()
 
         # Botón Confirmar (Celeste, Izquierda)
-        self.btn_confirmar = QPushButton("Confirmar")
+        self.btn_confirmar = QPushButton("Continuar")
         self.btn_confirmar.setFixedSize(125, 40)
         self.btn_confirmar.setFont(QFont("Segoe UI", 12, QFont.Weight.DemiBold))
         self.btn_confirmar.setStyleSheet("""
@@ -139,6 +143,85 @@ class _DialogoConfirmarReporte(QDialog):
         fila.addStretch()
 
         layout.addLayout(fila)
+
+
+# ══════════════════════════════════════════════════ #
+#  Diálogo confirmación Eliminar producto            #
+# ══════════════════════════════════════════════════ #
+
+class DialogoConfirmacionEliminar(QDialog):
+    """Diálogo modal para confirmación de eliminación de producto.
+    Cumple con el requerimiento de tener el foco inicial por defecto en Cancelar."""
+    def __init__(self, nombre_producto: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Confirmar Eliminación")
+        self.setFixedSize(400, 200)
+        self.setModal(True)
+        self.setStyleSheet("background-color: #FFFFFF;")
+        self._build(nombre_producto)
+        
+    def _build(self, nombre):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 24, 20, 20)
+        layout.setSpacing(10)
+        
+        lbl_titulo = QLabel("¿Eliminar producto?")
+        lbl_titulo.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        lbl_titulo.setStyleSheet("color: #333333;")
+        lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(lbl_titulo)
+        
+        lbl_aviso = QLabel(f"¿Está seguro que desea eliminar el producto\n\"{nombre}\"\nde su tienda?")
+        lbl_aviso.setFont(QFont("Segoe UI", 11))
+        lbl_aviso.setStyleSheet("color: #333333;")
+        lbl_aviso.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_aviso.setWordWrap(True)
+        layout.addWidget(lbl_aviso)
+        
+        layout.addSpacing(15)
+        
+        fila = QHBoxLayout()
+        fila.setSpacing(35)
+        fila.addStretch()
+        
+        self.btn_confirmar = QPushButton("Confirmar")
+        self.btn_confirmar.setFixedSize(125, 40)
+        self.btn_confirmar.setFont(QFont("Segoe UI", 12, QFont.Weight.DemiBold))
+        self.btn_confirmar.setStyleSheet("""
+            QPushButton { 
+                background-color: #52C5D8;
+                color: white; 
+                border: none; 
+                border-radius: 20px;
+            }
+            QPushButton:hover { background-color: #42AFC1; }
+            QPushButton:pressed { background-color: #339AA8; }
+        """)
+        self.btn_confirmar.clicked.connect(self.accept)
+        
+        self.btn_cancelar = QPushButton("Cancelar")
+        self.btn_cancelar.setFixedSize(125, 40)
+        self.btn_cancelar.setFont(QFont("Segoe UI", 12, QFont.Weight.DemiBold))
+        self.btn_cancelar.setDefault(True)
+        self.btn_cancelar.setAutoDefault(True)
+        self.btn_cancelar.setStyleSheet("""
+            QPushButton { 
+                background-color: #DE4A4A;
+                color: white; 
+                border: none; 
+                border-radius: 20px;
+            }
+            QPushButton:hover { background-color: #C63D3D; }
+            QPushButton:pressed { background-color: #AF3030; }
+        """)
+        self.btn_cancelar.clicked.connect(self.reject)
+        
+        fila.addWidget(self.btn_confirmar)
+        fila.addWidget(self.btn_cancelar)
+        fila.addStretch()
+        
+        layout.addLayout(fila)
+        self.btn_cancelar.setFocus()
 
 
 # ══════════════════════════════════════════════════ #
@@ -239,13 +322,11 @@ class _FilaCatalogo(QWidget):
 
 class PantallaAdmin(QWidget):
     senal_ir_cajero         = pyqtSignal()
-    senal_nuevo_producto    = pyqtSignal()
-    senal_editar_producto   = pyqtSignal(int)
-    senal_eliminar_producto = pyqtSignal(int)
-    senal_generar_reporte   = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, gestor_productos, gestor_reportes, parent=None):
         super().__init__(parent)
+        self.gp = gestor_productos
+        self.gr = gestor_reportes
         self._filas: dict[int, _FilaCatalogo] = {}
         self._setup_ui()
 
@@ -279,24 +360,63 @@ class PantallaAdmin(QWidget):
         lay.setSpacing(12)
         lay.addStretch()
 
-        self.btn_cajero = self._btn_header("  Cajero")
-        self.btn_admin  = self._btn_header("  Admin.", activo=True)
+        from iu.cajero.pantalla_cajero import crear_icono_bag, crear_icono_gear
+        icono_cajero = crear_icono_bag(22, QColor(148, 163, 184))
+        icono_admin = crear_icono_gear(22, QColor(255, 255, 255))
+
+        self.btn_cajero = self._btn_header("  Cajero", icono_cajero, activo=False)
+        self.btn_admin  = self._btn_header("  Admin.", icono_admin, activo=True)
         self.btn_cajero.clicked.connect(self.senal_ir_cajero.emit)
 
         lay.addWidget(self.btn_cajero)
         lay.addWidget(self.btn_admin)
         return header
 
-    def _btn_header(self, texto: str, activo: bool = False) -> QPushButton:
+    def _btn_header(self, texto: str, icono: QIcon, activo: bool = False) -> QPushButton:
         btn = QPushButton(texto)
-        btn.setFixedHeight(38)
-        btn.setMinimumWidth(110)
-        btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        btn.setIcon(icono)
+        btn.setIconSize(QSize(22, 22))
+        btn.setFixedHeight(46)
+        btn.setMinimumWidth(150)
+        btn.setFont(QFont("Segoe UI", 13, QFont.Weight.DemiBold))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if activo:
-            btn.setStyleSheet(f"QPushButton {{ background-color: {_Colors.HEADER_BTN_ACTIVE}; color: white; border: 1.5px solid {_Colors.HEADER_BTN_BORDER}; border-radius: 10px; padding: 0 18px; }}")
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {_Colors.HEADER_BTN_ACTIVE};
+                    color: #FFFFFF;
+                    border: 1.5px solid {_Colors.HEADER_BTN_BORDER};
+                    border-radius: 12px;
+                    padding: 0 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(96, 165, 250, 0.35);
+                    border: 1.5px solid #93C5FD;
+                }}
+            """)
+            glow = QGraphicsDropShadowEffect(btn)
+            glow.setBlurRadius(15)
+            glow.setOffset(0, 0)
+            glow.setColor(QColor(96, 165, 250, 100))
+            btn.setGraphicsEffect(glow)
         else:
-            btn.setStyleSheet(f"QPushButton {{ background-color: {_Colors.HEADER_BTN}; color: white; border: 1.5px solid transparent; border-radius: 10px; padding: 0 18px; }} QPushButton:hover {{ background-color: {_Colors.HEADER_BTN_HOVER}; }}")
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(255, 255, 255, 0.04);
+                    color: #94A3B8;
+                    border: 1.5px solid rgba(255, 255, 255, 0.08);
+                    border-radius: 12px;
+                    padding: 0 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #FFFFFF;
+                    border: 1.5px solid rgba(255, 255, 255, 0.20);
+                }}
+                QPushButton:pressed {{
+                    background-color: rgba(255, 255, 255, 0.08);
+                }}
+            """)
         return btn
 
     def _crear_tabla_catalogo(self) -> QWidget:
@@ -394,7 +514,7 @@ class PantallaAdmin(QWidget):
         sombra_r.setOffset(0, 3)
         sombra_r.setColor(QColor(15, 76, 129, 55))
         self.btn_reporte.setGraphicsEffect(sombra_r)
-        self.btn_reporte.clicked.connect(self._solicitar_generar_reporte)
+        self.btn_reporte.clicked.connect(self._generar_reporte)
 
         self.btn_nuevo = QPushButton("  + Nuevo producto")
         self.btn_nuevo.setFixedSize(190, 46)
@@ -409,7 +529,7 @@ class PantallaAdmin(QWidget):
         sombra_n.setOffset(0, 3)
         sombra_n.setColor(QColor(21, 128, 61, 55))
         self.btn_nuevo.setGraphicsEffect(sombra_n)
-        self.btn_nuevo.clicked.connect(self.senal_nuevo_producto.emit)
+        self.btn_nuevo.clicked.connect(self._nuevo_producto)
 
         lay.addWidget(self.btn_reporte, alignment=Qt.AlignmentFlag.AlignLeft)
         lay.addStretch()
@@ -448,14 +568,6 @@ class PantallaAdmin(QWidget):
         self._lay_filas.removeWidget(fila)
         fila.deleteLater()
 
-    def _solicitar_generar_reporte(self):
-        dlg = _DialogoConfirmarReporte(parent=self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            self.senal_generar_reporte.emit()
-
-    def _solicitar_eliminar(self, id_producto: int):
-        self.senal_eliminar_producto.emit(id_producto)
-
     def _insertar_fila(self, producto: dict):
         fila = self._crear_fila(producto)
         idx = self._lay_filas.count() - 1 
@@ -464,9 +576,105 @@ class PantallaAdmin(QWidget):
 
     def _crear_fila(self, producto: dict) -> _FilaCatalogo:
         fila = _FilaCatalogo(producto)
-        fila.senal_editar.connect(self.senal_editar_producto.emit)
-        fila.senal_eliminar.connect(self._solicitar_eliminar)
+        fila.senal_editar.connect(self._editar_producto)
+        fila.senal_eliminar.connect(self._eliminar_producto)
         return fila
+
+    def _nuevo_producto(self):
+        dialogo = FormularioProducto(parent=self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            datos = dialogo.datos_producto()
+            exito = self.gp.alta_producto(
+                datos["nombre"],
+                datos["tipo_venta"],
+                datos["precio_compra"],
+                datos["precio_venta"],
+                datos["stock_minimo"],
+                datos["stock_actual"]
+            )
+            if exito:
+                self.cargar_catalogo(self.gp.obtener_catalogo())
+            else:
+                QMessageBox.critical(self, "Error de Guardado", "No se pudo registrar el nuevo producto en la base de datos.")
+
+    def _editar_producto(self, id_producto):
+        producto = self.gp.db.consultar_uno(
+            "SELECT id_producto, nombre, tipo_venta, precio_compra, precio_venta, stock_minimo, stock_actual FROM PRODUCTOS WHERE id_producto = ?;",
+            (id_producto,)
+        )
+        if not producto:
+            QMessageBox.warning(self, "Error de Selección", "No se encontró el producto a editar.")
+            return
+            
+        dialogo = FormularioProducto(producto=dict(producto), parent=self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            datos = dialogo.datos_producto()
+            exito = self.gp.editar_producto(
+                id_producto,
+                datos["nombre"],
+                datos["tipo_venta"],
+                datos["precio_compra"],
+                datos["precio_venta"],
+                datos["stock_minimo"],
+                datos["stock_actual"]
+            )
+            if exito:
+                self.cargar_catalogo(self.gp.obtener_catalogo())
+            else:
+                QMessageBox.critical(self, "Error de Guardado", "No se pudo actualizar el producto en la base de datos.")
+
+    def _eliminar_producto(self, id_producto):
+        producto = self.gp.db.consultar_uno("SELECT nombre FROM PRODUCTOS WHERE id_producto = ?;", (id_producto,))
+        if not producto:
+            return
+        nombre = producto["nombre"]
+        
+        dialogo = DialogoConfirmacionEliminar(nombre, parent=self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            exito = self.gp.eliminar_producto(id_producto)
+            if exito:
+                self.cargar_catalogo(self.gp.obtener_catalogo())
+            else:
+                QMessageBox.critical(self, "Error al Eliminar", "No se pudo eliminar el producto de la base de datos.")
+
+    def _generar_reporte(self):
+        # 1. Confirmar con diálogo visual
+        dlg = _DialogoConfirmarReporte(parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+            
+        # 2. Recopilar datos
+        datos = self.gr.generar_datos_reporte()
+        
+        # 3. Elegir ruta de guardado mediante QFileDialog
+        ruta_archivo, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar Reporte Diario",
+            os.path.join(os.path.expanduser("~"), f"Reporte_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"),
+            "Documentos PDF (*.pdf)"
+        )
+        if not ruta_archivo:
+            return
+            
+        # 4. Exportar a PDF
+        if self.gr.exportar_pdf(datos, ruta_archivo):
+            # 5. Reiniciar contadores (vaciar tablas ventas y detalle_ventas)
+            try:
+                self.gr.reiniciar_contadores()
+                QMessageBox.information(
+                    self,
+                    "Reporte Generado",
+                    f"Reporte diario exportado con éxito en:\n{ruta_archivo}\n\nLos contadores de ventas del día se han reiniciado a cero."
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error de Reinicio",
+                    f"Se exportó el PDF, pero ocurrió un error al reiniciar los contadores diarios:\n{e}"
+                )
+            self.cargar_catalogo(self.gp.obtener_catalogo())
+        else:
+            QMessageBox.critical(self, "Error de Exportación", "No se pudo generar el archivo PDF del reporte diario.")
     
 if __name__ == "__main__":
     import sys
