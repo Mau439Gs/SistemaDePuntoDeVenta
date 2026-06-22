@@ -15,7 +15,14 @@ from logica.gestor_reportes import GestorReportes
 from iu.ventana_principal import VentanaPrincipal
 
 def main():
-    RUTA_DB = os.path.join(os.path.dirname(__file__), "prueba_punto_venta.db")
+    home_dir = os.path.expanduser("~")
+    
+    carpeta_app = os.path.join(home_dir, ".sistema_punto_venta")
+    
+    if not os.path.exists(carpeta_app):
+        os.makedirs(carpeta_app)
+        
+    RUTA_DB = os.path.join(carpeta_app, "prueba_punto_venta.db")
     db = BaseDatos(ruta_db=RUTA_DB)
     db.inicializar_tablas()
     
