@@ -58,7 +58,23 @@ class VentanaPrincipal(QMainWindow):
         self.stacked_widget.setCurrentWidget(self.pantalla_admin)
 
     def _mostrar_cajero(self):
-        # Al regresar al cajero, actualizamos la tabla para reflejar posibles cambios en stock
+        items_a_eliminar = []
+        for item in self.gc.items:
+            producto_db = self.gp.db.consultar_uno(
+                "SELECT * FROM PRODUCTOS WHERE id_producto = ?;", 
+                (item.producto['id_producto'],)
+            )
+            if producto_db:
+                item.producto = dict(producto_db)
+                if item.producto.get('tipo_venta') == 'pieza':
+                    item.cantidad = float(int(item.cantidad))
+                item.subtotal = item.calcular_subtotal()
+            else:
+                items_a_eliminar.append(item.producto['id_producto'])
+                
+        for id_prod in items_a_eliminar:
+            self.gc.eliminar_item(id_prod)
+
         self.pantalla_cajero._actualizar_tabla()
         self.stacked_widget.setCurrentWidget(self.pantalla_cajero)
         self.pantalla_cajero.barra_busqueda.setFocus()

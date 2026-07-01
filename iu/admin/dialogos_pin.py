@@ -104,6 +104,7 @@ def _crear_campo_pin() -> QLineEdit:
             color: #1E293B;
             letter-spacing: 10px;
             font-size: 20px;
+            lineedit-password-character: 42;
         }
         QLineEdit:focus {
             border-bottom: 2px solid #2563EB;
@@ -115,7 +116,6 @@ def _crear_campo_pin() -> QLineEdit:
 
 # ══════════════════════════════════════════════════
 #  DialogoConfigurarPIN  (A-001 / A-003)
-#  Primer acceso — diseño fiel al prototipo
 # ══════════════════════════════════════════════════
 
 class DialogoConfigurarPIN(QDialog):
@@ -293,14 +293,14 @@ class DialogoConfigurarPIN(QDialog):
     # ── Lógica ──
 
     def _on_texto_cambiado(self):
-        self.btn_guardar.setEnabled(len(self.campo_pin.text()) == _PIN_LEN)
+        self.btn_guardar.setEnabled(len(self.campo_pin.text()) >= 1)
         if self.lbl_error.isVisible():
             self.lbl_error.ocultar()
 
     def _on_guardar(self):
         pin = self.campo_pin.text()
         if len(pin) < _PIN_LEN:
-            self.lbl_error.mostrar_error(f"El PIN debe tener {_PIN_LEN} dígitos")
+            self.lbl_error.mostrar_error("El PIN debe ser de 6 cifras")
             self.campo_pin.setFocus()
             return
         self._pin_resultado = pin
@@ -472,7 +472,7 @@ class DialogoPIN(QDialog):
     # ── Lógica ──
 
     def _on_texto_cambiado(self):
-        self.btn_ingresar.setEnabled(len(self.campo_pin.text()) == _PIN_LEN)
+        self.btn_ingresar.setEnabled(len(self.campo_pin.text()) >= 1)
         if self.lbl_error.isVisible():
             self.lbl_error.ocultar()
 
@@ -480,7 +480,7 @@ class DialogoPIN(QDialog):
         pin = self.campo_pin.text()
 
         if len(pin) < _PIN_LEN:
-            self.lbl_error.mostrar_error(f"El PIN debe tener {_PIN_LEN} dígitos")
+            self.lbl_error.mostrar_error("El PIN debe ser de 6 cifras")
             self.campo_pin.setFocus()
             return
 

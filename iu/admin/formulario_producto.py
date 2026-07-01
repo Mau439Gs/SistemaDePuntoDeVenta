@@ -16,16 +16,11 @@ from PyQt6.QtWidgets import (
     QFrame, QWidget, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt, QSignalBlocker, QSize
-from PyQt6.QtGui import QFont, QDoubleValidator, QLinearGradient, QPainter, QPaintEvent, QColor, QIcon
+from PyQt6.QtGui import QFont, QDoubleValidator, QIntValidator, QLinearGradient, QPainter, QPaintEvent, QColor, QIcon
 
 
-# ── Paleta de colores y estilos unificados ────────────────────────── #
 _C_HEADER_START = "#1E3A8A"
 _C_HEADER_END   = "#0F172A"
-_C_HEADER_BTN   = "rgba(255, 255, 255, 0.08)"
-_C_HEADER_BTN_HV = "rgba(255, 255, 255, 0.18)"
-_C_HEADER_BTN_ACT = "rgba(96, 165, 250, 0.25)"
-_C_HEADER_BORDER = "#60A5FA"
 
 _C_BG       = "#FFFFFF"
 _C_TITULO   = "#1E293B"
@@ -156,11 +151,11 @@ class FormularioProducto(QDialog):
         h_tipo.addWidget(self._rb_granel)
         form_lay.addLayout(self._bloque_campo("Tipo de venta", cont_tipo))
 
-        # --- Campo: Precio de compra ---
+        self._grupo_tipo.buttonClicked.connect(lambda: self._validar())
+
         w_pc, self._inp_precio_compra = self._crear_input_simbolo("$", 180)
         form_lay.addLayout(self._bloque_campo("Precio de compra", w_pc))
 
-        # --- Campos: Precio de venta y Ganancia ---
         h_precios = QHBoxLayout()
         w_pv, self._inp_precio_venta = self._crear_input_simbolo("$", 160)
         w_gan, self._inp_ganancia = self._crear_input_simbolo("%", 160)
@@ -354,12 +349,21 @@ class FormularioProducto(QDialog):
     def _cargar_datos(self, p: dict):
         self._inp_nombre.setText(p.get("nombre", ""))
         tipo = p.get("tipo_venta", "pieza").lower()
-        self._rb_granel.setChecked(tipo == "granel")
-        self._rb_piezas.setChecked(tipo != "granel")
+        es_granel = (tipo == "granel")
+        self._rb_granel.setChecked(es_granel)
+        self._rb_piezas.setChecked(not es_granel)
         self._inp_precio_compra.setText(str(p.get("precio_compra", "")))
         self._inp_precio_venta.setText(str(p.get("precio_venta", "")))
-        self._inp_stock_min.setText(str(p.get("stock_minimo", "")))
-        self._inp_stock_actual.setText(str(p.get("stock_actual", "")))
+        
+        def fmt_stock(val):
+            if val == "" or val is None: return ""
+            try:
+                return str(float(val)) if es_granel else str(int(float(val)))
+            except ValueError:
+                return str(val)
+
+        self._inp_stock_min.setText(fmt_stock(p.get("stock_minimo", "")))
+        self._inp_stock_actual.setText(fmt_stock(p.get("stock_actual", "")))
 
     def _precio_venta_cambiado(self, texto: str):
         compra = self._float(self._inp_precio_compra.text())
@@ -378,6 +382,21 @@ class FormularioProducto(QDialog):
                 self._inp_precio_venta.setText(f"{precio:.2f}")
 
     def _validar(self):
+        es_pieza = self._rb_piezas.isChecked()
+        for inp in (self._inp_stock_min, self._inp_stock_actual):
+            validador_actual = inp.validator()
+            if es_pieza and not isinstance(validador_actual, QIntValidator):
+                inp.setValidator(QIntValidator(0, 999999, self))
+                txt = inp.text().replace(",", ".")
+                if "." in txt:
+                    try:
+                        with QSignalBlocker(inp):
+                            inp.setText(str(int(float(txt))))
+                    except (ValueError, AttributeError):
+                        pass
+            elif not es_pieza and isinstance(validador_actual, QIntValidator):
+                inp.setValidator(QDoubleValidator(0.0, 999999.99, 3, self))
+
         ok = all([
             self._inp_nombre.text().strip() != "",
             self._float(self._inp_precio_compra.text()) is not None,

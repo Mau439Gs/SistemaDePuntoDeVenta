@@ -258,8 +258,12 @@ class SelectorCantidadTabla(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 4, 0, 4)
+        main_layout.setSpacing(6)
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(4, 0, 4, 0)
         layout.setSpacing(8)
 
         # Botón Menos (Más grande)
@@ -274,7 +278,6 @@ class SelectorCantidadTabla(QWidget):
         self.txt_cantidad.setFixedSize(96, 46)
         self.txt_cantidad.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.txt_cantidad.setFont(QFont("Segoe UI", 15))
-        self.txt_cantidad.setPlaceholderText("Granel" if self.es_granel else "Unidad")
         
         if self.es_granel:
             validador = QDoubleValidator(0.0, 9999.99, 2, self)
@@ -331,11 +334,18 @@ class SelectorCantidadTabla(QWidget):
         layout.addWidget(self.txt_cantidad)
         layout.addWidget(self.btn_mas)
 
+        main_layout.addLayout(layout)
+
+        self.lbl_tipo = QLabel("Granel" if self.es_granel else "Unidad")
+        self.lbl_tipo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_tipo.setStyleSheet("color: #94A3B8; font-size: 13px;")
+        main_layout.addWidget(self.lbl_tipo)
+
         self._actualizar_estados_botones()
 
     def _formatear_cantidad(self, valor: float) -> str:
         if self.es_granel:
-            return f"{valor:.2f}"
+            return str(round(valor, 2))
         return str(int(valor))
 
     def _on_menos_clicked(self):
@@ -359,7 +369,7 @@ class SelectorCantidadTabla(QWidget):
     def _on_editing_finished(self):
         texto = self.txt_cantidad.text().strip().replace(",", ".")
         if not texto:
-            valor = 0
+            valor = self.cantidad
         else:
             try:
                 valor = float(texto) if self.es_granel else int(texto)
@@ -700,7 +710,7 @@ class PantallaCajero(QWidget):
         self.tabla_carrito.setColumnWidth(4, 110)
         
         self.tabla_carrito.verticalHeader().setVisible(False)
-        self.tabla_carrito.verticalHeader().setDefaultSectionSize(80)
+        self.tabla_carrito.verticalHeader().setDefaultSectionSize(95)
         self.tabla_carrito.setShowGrid(False)
         self.tabla_carrito.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla_carrito.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -1185,7 +1195,7 @@ class PantallaCajero(QWidget):
         stock_minimo = prod.get('stock_minimo', 0.0)
         
         if stock_restante <= 0:
-            self.lbl_alerta_stock.setText(f"{prod['nombre']}\nAGOTADO")
+            self.lbl_alerta_stock.setText(f"{prod['nombre']}\nAgotado")
             self.lbl_alerta_stock.setVisible(True)
         elif stock_restante < stock_minimo:
             stock_str = f"{stock_restante:.2f}" if es_gr else f"{int(stock_restante)}"
@@ -1280,12 +1290,20 @@ class PantallaCajero(QWidget):
             if watched == self.barra_busqueda:
                 if key == Qt.Key.Key_Down:
                     if self.panel_resultados.isVisible() and self.panel_resultados.count() > 0:
-                        self.panel_resultados.setFocus()
-                        self.panel_resultados.setCurrentRow(0)
+                        current = self.panel_resultados.currentRow()
+                        next_row = current + 1
+                        if next_row < self.panel_resultados.count():
+                            self.panel_resultados.setCurrentRow(next_row)
                         return True
                     elif not self.gestor_carrito.esta_vacio():
                         self.tabla_carrito.setFocus()
                         self.tabla_carrito.selectRow(0)
+                        return True
+                elif key == Qt.Key.Key_Up:
+                    if self.panel_resultados.isVisible() and self.panel_resultados.count() > 0:
+                        current = self.panel_resultados.currentRow()
+                        if current > 0:
+                            self.panel_resultados.setCurrentRow(current - 1)
                         return True
                 elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                     if self.panel_resultados.isVisible() and self.panel_resultados.count() > 0:
@@ -1437,7 +1455,7 @@ class PantallaCajero(QWidget):
             alertas_txt = ""
             for alerta in resultado['alertas_stock']:
                 if alerta.get('agotado'):
-                    alertas_txt += f"• {alerta['nombre']}: AGOTADO\n"
+                    alertas_txt += f"• {alerta['nombre']}: Agotado\n"
                 else:
                     alertas_txt += f"• {alerta['nombre']}: Stock bajo ({alerta['stock_actual']:.1f})\n"
             
